@@ -6,7 +6,7 @@ using System.Text;
 
 namespace TBYTEConsole
 {
-    public delegate string CommandCallback(int argc, string[] argv);
+    public delegate string CommandCallback(string[] Arguments);
 
     public struct CCommand
     {
@@ -23,9 +23,22 @@ namespace TBYTEConsole
             Token = command; 
             Callback = callback;
         }
-        public string Execute(int argc, string[] argv)
+
+        public string Execute(string[] argv)
         {
-            return Callback(argc, argv);
+            return Callback(argv);
+        }
+    }
+    
+    internal struct Command
+    {
+        public readonly string Token;
+        public readonly string[] Arguments;
+
+        public Command(string token, string[] arguments)
+        {
+            Token = token;
+            Arguments = arguments;
         }
     }
 
@@ -33,92 +46,127 @@ namespace TBYTEConsole
     {
         static Console()
         {
+            // register default commands
             Register(new CCommand("help", ConsoleDefaultCommands.HelpCommand));
             Register(new CCommand("clear", ConsoleDefaultCommands.ClearCommand));
             Register(new CCommand("echo", ConsoleDefaultCommands.EchoCommand));
         }
 
-        private static List<CCommand> commands = new List<CCommand>();
+        private static Dictionary<string, CCommand> commands = new Dictionary<string, CCommand>();
         private static string consoleOutput;
 
-        public static void Register(CCommand newCommand)
-        {
-            commands.Add(newCommand);
-        }
-
-        private static string ProcessCommand(string command, int argc, string[] argv)
-        {
-            foreach(var cmd in commands)
-            {
-                if (cmd.Token == command)
-                {
-                    return cmd.Callback(argc, argv);
-                }
-            }
-
-            return string.Format("{0} is not a valid command", command);
-        }
         public static string ProcessConsoleInput(string command)
         {
-            // blank? send it back
-            if (string.IsNullOrEmpty(command))
+            // remove excess whitespace
+            command.Trim();
+
+            // exit if empty
+            if (command == string.Empty)
                 return consoleOutput;
 
+            // echo command back to console
+            consoleOutput += "\n>" + command + "\n";
+
+            Command evaluation = DecomposeInput(command);
+
+            // try command
+            if (ValidateCommand(evaluation))
+            {
+                // HACK: can't modify consoleHistory immediately after +=
+                string result = ProcessCommand(evaluation);
+                if (!string.IsNullOrEmpty(result))
+                    consoleOutput += "\n" + result;
+
+            }
+            // try cvar
+            else if (ValidateCVar(evaluation))
+            {
+                consoleOutput += "\n" + ProcessCvar(evaluation);
+            }
+            else
+            {
+                consoleOutput += "\n" + evaluation.Token + " is not a valid token";
+            }
+            
+            return consoleOutput + "\n";
+        }
+
+        public static bool Register(CCommand newCommand)
+        {
+            if(commands.ContainsKey(newCommand.Token))
+            {
+                return false;
+            }
+
+            commands[newCommand.Token] = newCommand;
+
+            return true;
+        }
+
+        private static Command DecomposeInput(string command)
+        {
             command.Trim();
 
             // split into command and args
             string[] input = command.Split(' ');
 
-            string    cmd = input[0];
-            string[] args = command.Substring(cmd.Length).Trim().Split(' ');
+            string cmd = input[0];
+            string[] args = null;
 
-            // reject if empty command
-            if (string.IsNullOrEmpty(cmd))
-                return consoleOutput;
+            if (command.Length == cmd.Length)
+                args = new string[0];
+            else
+                args = command.Substring(cmd.Length).Trim().Split(' ');
 
-            // echo command back to console
-            consoleOutput += "\n>" + command;
-
-            // HACK: why does this work
-            // if I modify consoleHistory while its += is being evaluated, it gets written back
-            string result = ProcessCommand(cmd, args.Length, args);
-            if (!string.IsNullOrEmpty(result))
-            {
-                consoleOutput += "\n" + result;
-            }
-
-            return consoleOutput;
+            return new Command(cmd, args);
         }
-
-        private static string ClearHistory()
+        private static bool ValidateCommand(Command command)
         {
-            consoleOutput = string.Empty;
-            return consoleOutput;
+            return commands.ContainsKey(command.Token);
+        }     
+        private static string ProcessCommand(Command command)
+        {
+            if (commands.ContainsKey(command.Token))
+                return commands[command.Token].Execute(command.Arguments);
+
+            return string.Format("{0} is not a valid command", command.Token);
         }
 
+        private static bool ValidateCVar(Command cvarCommand)
+        {
+            return CVarRegistry.ContainsCVar(cvarCommand.Token);
+        }
+        private static string ProcessCvar(Command cvarCommand)
+        {
+            if (cvarCommand.Arguments.Length == 0)
+                return cvarCommand.Token + " = " + CVarRegistry.LookUp(cvarCommand.Token).ToString();
+            else
+                return "Sorry, assignment is unavailable at the moment.";
+        }
+        
         private static class ConsoleDefaultCommands
         {
-            static public string HelpCommand(int argc, string[] argv)
+            static public string HelpCommand(string[] Arguments)
             {
                 string output = string.Empty;
 
-                foreach (var command in commands)
+                foreach (var command in commands.Keys)
                 {
-                    output += command.Token + "\n";
+                    output += command + "\n";
                 }
 
                 return output;
             }
-            static public string ClearCommand(int argc, string[] argv)
+            static public string ClearCommand(string[] Arguments)
             {
-                ClearHistory();
-                return string.Empty;
+                consoleOutput = string.Empty;
+                return consoleOutput;
             }
-            static public string EchoCommand(int argc, string[] argv)
+            static public string EchoCommand(string[] Arguments)
             {
                 StringBuilder bldr = new StringBuilder();
 
-                foreach (var arg in argv)
+                foreach (var arg in Arguments)
                 {
                     bldr.Append(arg);
                     bldr.Append(' ');

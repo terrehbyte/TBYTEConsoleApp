@@ -17,6 +17,11 @@ namespace TBYTEConsole
 
     public static class CVarRegistry
     {
+        static CVarRegistry()
+        {
+            Register("version", 0.1f);
+        }
+
         static Dictionary<string, object> registry = new Dictionary<string, object>();
 
         // Adds an entry to the CVarRegistry
@@ -51,6 +56,12 @@ namespace TBYTEConsole
         static public T LookUp<T>(string cvarName) where T : struct
         {
             return (T)LookUp(cvarName);
+        }
+
+        // Returns true if the CVar is registered with this registry
+        static public bool ContainsCVar(string cvarName)
+        {
+            return registry.ContainsKey(cvarName);
         }
     }
 
