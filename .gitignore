@@ -1,0 +1,46 @@
+# ======================== #
+# Unity Project .gitignore #
+# ======================== #
+# Please place in the top-level folder for your Unity project.
+# (e.g. same folder as Assets and ProjectSettings)
+
+# =============== #
+# Unity generated #
+# =============== #
+Temp/
+Obj/
+UnityGenerated/
+Library/
+Builds/
+ 
+# ===================================== #
+# Visual Studio / MonoDevelop generated #
+# ===================================== #
+ExportedObj/
+*.svd
+*.userprefs
+*.csproj
+*.pidb
+*.suo
+*.sln
+*.user
+*.unityproj
+*.booproj
+ 
+# ============ #
+# OS generated #
+# ============ #
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Icon?
+ehthumbs.db
+Thumbs.db
+
+# ======= #
+# UnityVS #
+# ======= #
+**/UnityVS/Editor/*
+!SyntaxTree.*

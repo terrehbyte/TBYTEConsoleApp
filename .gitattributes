@@ -1,0 +1,20 @@
+# Set the default behavior, in case people don't have core.autocrlf set.
+* text=auto
+
+# Explicitly declare text files you want to always be normalized and converted
+# to native line endings on checkout.
+*.md text
+
+*.cs text diff=csharp
+*.js text
+*.boo text
+
+# Denote all files that are truly binary and should not be modified.
+*.fbx binary
+*.obj binary
+*.mb binary
+*.ma binary
+
+*.wav binary
+*.mp3 binary
+*.ogg binary
