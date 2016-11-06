@@ -142,7 +142,17 @@ namespace TBYTEConsole
                 return cvarCommand.Token + " = " + CVarRegistry.LookUp(cvarCommand.Token).ToString() + "\n";
             else if (cvarCommand.Arguments.Length == 1)
             {
-                CVarRegistry.WriteTo(cvarCommand.Token, cvarCommand.Arguments[0]);
+                try
+                {
+                    CVarRegistry.WriteTo(cvarCommand.Token, cvarCommand.Arguments[0]);
+                }
+                catch (Exception ex)
+                {
+                    if (ex is CVarRegistryException)
+                    {
+                        return "Failed to assign to " + cvarCommand.Token + "\n";
+                    }
+                }
                 return string.Empty;    // TODO: WHY IS THIS EMPTY
             }
             else

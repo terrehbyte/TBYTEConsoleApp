@@ -37,13 +37,13 @@ namespace TBYTEConsole
 
         static CVarRegistry()
         {
-            new CVar<float>("version", 0.01f); 
+            CVarDefaults.Register();
         }
 
         static Dictionary<string, CVarData> registry = new Dictionary<string, CVarData>();
 
         // Adds an entry to the CVarRegistry
-        static public void Register<T>(CVar<T> newCvar) where T : IConvertible, IFormattable
+        static public void Register<T>(CVar<T> newCvar) where T : IConvertible
         {
             if(registry.ContainsKey(newCvar.name))
             {
@@ -51,12 +51,29 @@ namespace TBYTEConsole
                 //throw new CVarRegistryException(string.Format("CVar Registry already contains an entry for {0}", newCvar.name));
             }
 
-            registry[newCvar.name] = new CVarData(typeof(T), default(T).ToString());
+            CVarData babyCVar;
+            try
+            {
+                babyCVar = new CVarData(typeof(T), default(T).ToString());
+            }
+            catch (NullReferenceException)
+            {
+                // special logic for Strings
+                if(typeof(T) == typeof(String))
+                {
+                    babyCVar = new CVarData(typeof(T), string.Empty);
+                }
+                else
+                {
+                    throw;
+                }
+            }
+            registry[newCvar.name] = babyCVar;
         }
 
         // Returns an object for a given key, as the type given
         // - Asserts if the given key does not have a value
-        static public T LookUp<T>(string cvarName) where T : IConvertible, IFormattable
+        static public T LookUp<T>(string cvarName) where T : IConvertible
         {
             return (T)Convert.ChangeType(registry[cvarName].value, typeof(T));
         }
@@ -66,7 +83,7 @@ namespace TBYTEConsole
             return registry[cvarName].value;
         }
 
-        static public void WriteTo<T>(string cvarName, T value) where T : IConvertible, IFormattable
+        static public void WriteTo<T>(string cvarName, T value) where T : IConvertible
         {
             registry[cvarName].value = Convert.ToString(value);
         }
@@ -74,11 +91,6 @@ namespace TBYTEConsole
         static public void WriteTo(string cvarName, string value)
         {
             var data = Convert.ChangeType(value, registry[cvarName].type);
-
-            if(data == null)
-            {
-                throw new CVarRegistryException("Failed to convert string to given CVar data type");
-            }
 
             registry[cvarName].value = value;
         }
@@ -88,10 +100,21 @@ namespace TBYTEConsole
         {
             return registry.ContainsKey(cvarName);
         }
+
+        public static class CVarDefaults
+        {
+            public static void Register()
+            {
+                new CVar<float>("version", 0.01f);
+                new CVar<string>("cl_playerName", "terrehbyte");
+            }
+        }
     }
 
+
+
     // Type-safe accessor for a particular CVar
-    public class CVar<T> where T : IConvertible, IFormattable
+    public class CVar<T> where T : IConvertible
     {
         public readonly string name;
 
