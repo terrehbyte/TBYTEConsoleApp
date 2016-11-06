@@ -139,7 +139,7 @@ namespace TBYTEConsole
         private static string ProcessCvar(Command cvarCommand)
         {
             if (cvarCommand.Arguments.Length == 0)
-                return cvarCommand.Token + " = " + CVarRegistry.LookUp(cvarCommand.Token).ToString();
+                return cvarCommand.Token + " = " + CVarRegistry.LookUp(cvarCommand.Token).ToString() + "\n";
             else
                 return "Sorry, assignment is unavailable at the moment.";
         }
