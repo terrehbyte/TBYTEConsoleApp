@@ -140,8 +140,13 @@ namespace TBYTEConsole
         {
             if (cvarCommand.Arguments.Length == 0)
                 return cvarCommand.Token + " = " + CVarRegistry.LookUp(cvarCommand.Token).ToString() + "\n";
+            else if (cvarCommand.Arguments.Length == 1)
+            {
+                CVarRegistry.WriteTo(cvarCommand.Token, cvarCommand.Arguments[0]);
+                return string.Empty;    // TODO: WHY IS THIS EMPTY
+            }
             else
-                return "Sorry, assignment is unavailable at the moment.";
+                return "Sorry, support for assignment to types spanning more than one space is coming. Eventually.\n";
         }
         
         private static class ConsoleDefaultCommands

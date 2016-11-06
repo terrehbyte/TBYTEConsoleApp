@@ -25,11 +25,13 @@ namespace TBYTEConsole
     {
         private class CVarData
         {
-            public CVarData(string initialValue)
+            public CVarData(Type dataType, string initialValue)
             {
+                type = dataType;
                 value = initialValue;
             }
 
+            public Type type;
             public string value;
         }
 
@@ -49,7 +51,7 @@ namespace TBYTEConsole
                 //throw new CVarRegistryException(string.Format("CVar Registry already contains an entry for {0}", newCvar.name));
             }
 
-            registry[newCvar.name] = new CVarData(default(T).ToString());
+            registry[newCvar.name] = new CVarData(typeof(T), default(T).ToString());
         }
 
         // Returns an object for a given key, as the type given
@@ -67,6 +69,18 @@ namespace TBYTEConsole
         static public void WriteTo<T>(string cvarName, T value) where T : IConvertible, IFormattable
         {
             registry[cvarName].value = Convert.ToString(value);
+        }
+
+        static public void WriteTo(string cvarName, string value)
+        {
+            var data = Convert.ChangeType(value, registry[cvarName].type);
+
+            if(data == null)
+            {
+                throw new CVarRegistryException("Failed to convert string to given CVar data type");
+            }
+
+            registry[cvarName].value = value;
         }
 
         // Returns true if the CVar is registered with this registry
