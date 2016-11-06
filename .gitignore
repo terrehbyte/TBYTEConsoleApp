@@ -12,7 +12,7 @@ Obj/
 UnityGenerated/
 Library/
 Builds/
- 
+
 # ===================================== #
 # Visual Studio / MonoDevelop generated #
 # ===================================== #
@@ -26,7 +26,7 @@ ExportedObj/
 *.user
 *.unityproj
 *.booproj
- 
+
 # ============ #
 # OS generated #
 # ============ #
@@ -44,3 +44,9 @@ Thumbs.db
 # ======= #
 **/UnityVS/Editor/*
 !SyntaxTree.*
+
+# ==== #
+# Code #
+# ==== #
+
+.vscode

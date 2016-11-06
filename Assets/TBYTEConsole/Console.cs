@@ -65,7 +65,7 @@ namespace TBYTEConsole
                 return consoleOutput;
 
             // echo command back to console
-            consoleOutput += "\n>" + command + "\n";
+            consoleOutput += ">" + command + "\n";
 
             Command evaluation = DecomposeInput(command);
 
@@ -75,20 +75,20 @@ namespace TBYTEConsole
                 // HACK: can't modify consoleHistory immediately after +=
                 string result = ProcessCommand(evaluation);
                 if (!string.IsNullOrEmpty(result))
-                    consoleOutput += "\n" + result;
-
+                    consoleOutput += result;
             }
             // try cvar
             else if (ValidateCVar(evaluation))
             {
-                consoleOutput += "\n" + ProcessCvar(evaluation);
+                consoleOutput += ProcessCvar(evaluation);
             }
+            // inform user that command wasn't recognized
             else
             {
-                consoleOutput += "\n" + evaluation.Token + " is not a valid token";
+                consoleOutput += evaluation.Token + " is not a valid token";
             }
             
-            return consoleOutput + "\n";
+            return consoleOutput;
         }
 
         public static bool Register(CCommand newCommand)
@@ -172,7 +172,7 @@ namespace TBYTEConsole
                     bldr.Append(' ');
                 }
 
-                return bldr.ToString();
+                return bldr.ToString() + "\n";
             }
         }
     }
