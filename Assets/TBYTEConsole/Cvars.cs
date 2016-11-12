@@ -21,16 +21,54 @@ namespace TBYTEConsole
 
     public static class CVarRegistry
     {
-        private class CVarData
+        private interface ICVarReadWritable
+        {
+            Type type { get; }
+            string stringValue { get; set; }
+        }
+
+        private class CVarProperty<T> : ICVarReadWritable
+        {
+            Func<string> getter;
+            Action<string> setter;
+
+            public CVarProperty(Type propType, Func<string> getter, Action<string> setter)
+            {
+                type = propType;
+
+                this.getter = getter;
+                this.setter = setter;
+            }
+            public CVarProperty(Func<string> getter, Action<string> setter) : this(typeof(T), getter, setter)
+            {
+            }
+
+            public Type type { get; private set; }
+            public string stringValue
+            {
+                get
+                {
+                    return getter();
+                }
+                set
+                {
+                    setter(value);
+                }
+            }
+        }
+        private class CVarData<T> : ICVarReadWritable
         {
             public CVarData(Type dataType, string initialValue)
             {
                 type = dataType;
-                value = initialValue;
+                stringValue = initialValue;
             }
-
-            public Type type;
-            public string value;
+            public CVarData(string initialValue) : this(typeof(T), initialValue)
+            {
+            }
+            
+            public Type type { get; private set; }
+            public string stringValue { get; set; }
         }
 
         static CVarRegistry()
@@ -38,17 +76,17 @@ namespace TBYTEConsole
             CVarDefaults.Register();
         }
 
-        static Dictionary<string, CVarData> registry = new Dictionary<string, CVarData>();
+        static Dictionary<string, ICVarReadWritable> registry = new Dictionary<string, ICVarReadWritable>();
 
-        // Adds an entry to the CVarRegistry by name and sets an initial value
+        // Adds an dataentry to the CVarRegistry by name and sets an initial value
         static public CVar<T> Register<T>(string cvarName, T initialValue) where T : IConvertible
         {
             if (ContainsCVar(cvarName)) { return null; }
 
-            CVarData babyCVar;
+            CVarData<T> babyCVar;
             try
             {
-                babyCVar = new CVarData(typeof(T), initialValue.ToString());
+                babyCVar = new CVarData<T>(initialValue.ToString());
             }
             catch (NullReferenceException ex)
             {
@@ -56,7 +94,7 @@ namespace TBYTEConsole
                 //   - `default(String)` yields `null` since it's a ref type
                 if (typeof(T) == typeof(String))
                 {
-                    babyCVar = new CVarData(typeof(T), string.Empty);
+                    babyCVar = new CVarData<T>(string.Empty);
                 }
                 else
                 {
@@ -69,29 +107,41 @@ namespace TBYTEConsole
             return new CVar<T>(cvarName, true);
         }
 
-        // Adds an entry to the CVarRegistry by name
+        // Adds an dataentry to the CVarRegistry by name
         static public CVar<T> Register<T>(string cvarName) where T : IConvertible
         {
             return Register(cvarName, default(T));
         }
 
-        // Adds an entry to the CVarRegistry by existing CVar
+        // Adds an dataentry to the CVarRegistry by existing CVar
         static public CVar<T> Register<T>(CVar<T> newCvar) where T : IConvertible
         {
             return Register<T>(newCvar.name);
+        }
+
+        // Adds a property-entry to the CVarRegistry by name and delegates
+        static public CVar<T> Register<T>(string cvarName, Func<string> getter, Action<string> setter) where T : IConvertible
+        {
+            if (ContainsCVar(cvarName)) { return null; }
+
+            CVarProperty<T> babyCVar = new CVarProperty<T>(getter, setter);
+
+            registry[cvarName] = babyCVar;
+
+            return new CVar<T>(cvarName, true);
         }
 
         // Returns an object for a given key, as the type given
         // - Asserts if the given key does not have a value
         static public T LookUp<T>(string cvarName) where T : IConvertible
         {
-            return (T)Convert.ChangeType(registry[cvarName].value, typeof(T));
+            return (T)Convert.ChangeType(registry[cvarName].stringValue, typeof(T));
         }
 
         // Returns the string-backed data store for a given CVar
         static public string LookUp(string cvarName)
         {
-            return registry[cvarName].value;
+            return registry[cvarName].stringValue;
         }
 
         // Assigns a value to the specified CVar entry
@@ -100,7 +150,7 @@ namespace TBYTEConsole
         {
             try
             {
-                registry[cvarName].value = Convert.ToString(value);
+                registry[cvarName].stringValue = Convert.ToString(value);
             }
             catch (Exception ex)
             {
@@ -122,7 +172,7 @@ namespace TBYTEConsole
                 throw new CVarRegistryException("Failed to convert value to CVar data type.", ex);
             }
 
-            registry[cvarName].value = value;
+            registry[cvarName].stringValue = value;
         }
 
         // Returns true if the CVar is registered with this registry
@@ -137,6 +187,18 @@ namespace TBYTEConsole
             {
                 CVarRegistry.Register("version", "0.1");
                 CVarRegistry.Register("cl_playerName", "PlayerName");
+                 
+                CVarRegistry.Register<float>("sv_timescale", GetTimescale, SetTimescale);
+            }
+
+            public static void SetTimescale(string value)
+            {
+                Time.timeScale = Convert.ToSingle(value);
+            }
+
+            public static string GetTimescale()
+            {
+                return Time.timeScale.ToString();
             }
         }
     }
