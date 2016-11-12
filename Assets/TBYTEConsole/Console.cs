@@ -85,7 +85,7 @@ namespace TBYTEConsole
             // inform user that command wasn't recognized
             else
             {
-                consoleOutput += evaluation.Token + " is not a valid token";
+                consoleOutput += evaluation.Token + " is not a valid token\n";
             }
             
             return consoleOutput;
