@@ -3,6 +3,9 @@
 # Roadmap
 
 1. Add support for CVars
+    - OnChange hooks per CVar (or from registry?)
+    - Instance CVars (per Component)
+    - Aliases
 2. Add support for different colors
 3. Add in-game console support
 4. Re-factor because it'll probably be sad by the time I'm done
