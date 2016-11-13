@@ -1,8 +1,6 @@
-﻿using UnityEngine;
-using System.Collections;
-using System.Collections.Generic;
-using System;
+﻿using System;
 using System.Text;
+using System.Collections.Generic;
 
 namespace TBYTEConsole
 {
@@ -10,23 +8,20 @@ namespace TBYTEConsole
 
     public struct CCommand
     {
-        public readonly string Token;
-        public CommandCallback Callback;
+        public readonly string token;
+        public CommandCallback callback;
 
-        public CCommand(string command, CommandCallback callback)
+        public CCommand(string commandName, CommandCallback callback)
         {
-            if (callback == null)
-            {
-                throw new NullReferenceException("Callback can not be null!");
-            }
+            if (callback == null) { throw new ArgumentNullException("callback"); }
 
-            Token = command; 
-            Callback = callback;
+            this.token = commandName; 
+            this.callback = callback;
         }
 
         public string Execute(string[] argv)
         {
-            return Callback(argv);
+            return callback(argv);
         }
     }
     
@@ -93,12 +88,12 @@ namespace TBYTEConsole
 
         public static bool Register(CCommand newCommand)
         {
-            if(commands.ContainsKey(newCommand.Token))
+            if(commands.ContainsKey(newCommand.token))
             {
                 return false;
             }
 
-            commands[newCommand.Token] = newCommand;
+            commands[newCommand.token] = newCommand;
 
             return true;
         }
