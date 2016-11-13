@@ -1,19 +1,19 @@
 ﻿using System;
 using System.Text;
 using System.Collections.Generic;
+using TBYTEConsole.Utilities;
 
 namespace TBYTEConsole
 {
-    public delegate string CommandCallback(string[] Arguments);
-
     public struct CCommand
     {
         public readonly string token;
-        public CommandCallback callback;
+        public readonly Func<string[], string> callback;
 
-        public CCommand(string commandName, CommandCallback callback)
+        public CCommand(string commandName, Func<string[], string> callback)
         {
-            if (callback == null) { throw new ArgumentNullException("callback"); }
+            commandName.ThrowIfNullOrEmpty("commandName");
+            callback.ThrowIfNull("callback");
 
             this.token = commandName; 
             this.callback = callback;
@@ -25,20 +25,20 @@ namespace TBYTEConsole
         }
     }
     
-    internal struct Command
-    {
-        public readonly string Token;
-        public readonly string[] Arguments;
-
-        public Command(string token, string[] arguments)
-        {
-            Token = token;
-            Arguments = arguments;
-        }
-    }
-
     public static class Console
     {
+        private struct ConsoleExpression
+        {
+            public readonly string token;
+            public readonly string[] arguments;
+
+            public ConsoleExpression(string token, string[] arguments)
+            {
+                this.token = token;
+                this.arguments = arguments;
+            }
+        }
+
         static Console()
         {
             // register default commands
@@ -62,26 +62,13 @@ namespace TBYTEConsole
             // echo command back to console
             consoleOutput += ">" + command + "\n";
 
-            Command evaluation = DecomposeInput(command);
+            ConsoleExpression evaluation = DecomposeInput(command);
 
-            // try command
-            if (ValidateCommand(evaluation))
-            {
-                // HACK: can't modify consoleHistory immediately after +=
-                string result = ProcessCommand(evaluation);
-                if (!string.IsNullOrEmpty(result))
-                    consoleOutput += result;
-            }
-            // try cvar
-            else if (ValidateCVar(evaluation))
-            {
-                consoleOutput += ProcessCvar(evaluation);
-            }
-            // inform user that command wasn't recognized
-            else
-            {
-                consoleOutput += evaluation.Token + " is not a valid token\n";
-            }
+            string executionResult = ValidateCommand(evaluation) ? ProcessCommand(evaluation) :
+                                     ValidateCVar(evaluation)    ? ProcessCvar(evaluation)    :
+                                     evaluation.token + " is not a valid token\n";
+
+            consoleOutput += executionResult;
             
             return consoleOutput;
         }
@@ -98,7 +85,7 @@ namespace TBYTEConsole
             return true;
         }
 
-        private static Command DecomposeInput(string command)
+        private static ConsoleExpression DecomposeInput(string command)
         {
             command.Trim();
 
@@ -113,45 +100,51 @@ namespace TBYTEConsole
             else
                 args = command.Substring(cmd.Length).Trim().Split(' ');
 
-            return new Command(cmd, args);
+            return new ConsoleExpression(cmd, args);
         }
-        private static bool ValidateCommand(Command command)
+        private static bool ValidateCommand(ConsoleExpression command)
         {
-            return commands.ContainsKey(command.Token);
+            return commands.ContainsKey(command.token);
         }     
-        private static string ProcessCommand(Command command)
+        private static string ProcessCommand(ConsoleExpression command)
         {
-            if (commands.ContainsKey(command.Token))
-                return commands[command.Token].Execute(command.Arguments);
+            if (commands.ContainsKey(command.token))
+                return commands[command.token].Execute(command.arguments);
 
-            return string.Format("{0} is not a valid command", command.Token);
+            return string.Format("{0} is not a valid command", command.token);
         }
 
-        private static bool ValidateCVar(Command cvarCommand)
+        private static bool ValidateCVar(ConsoleExpression cvarCommand)
         {
-            return CVarRegistry.ContainsCVar(cvarCommand.Token);
+            return CVarRegistry.ContainsCVar(cvarCommand.token);
         }
-        private static string ProcessCvar(Command cvarCommand)
+        private static string ProcessCvar(ConsoleExpression cvarCommand)
         {
-            if (cvarCommand.Arguments.Length == 0)
-                return cvarCommand.Token + " = " + CVarRegistry.LookUp(cvarCommand.Token).ToString() + "\n";
-            else if (cvarCommand.Arguments.Length == 1)
+            if (cvarCommand.arguments.Length == 0)
+                return cvarCommand.token + " = " + CVarRegistry.LookUp(cvarCommand.token).ToString() + "\n";
+            else
             {
+                string reassembledArgs = string.Empty;
+
+                for (int i = 0; i < cvarCommand.arguments.Length - 1; ++i)
+                {
+                    reassembledArgs += cvarCommand.arguments[i] + " ";
+                }
+                reassembledArgs += cvarCommand.arguments[cvarCommand.arguments.Length - 1];
+
                 try
                 {
-                    CVarRegistry.WriteTo(cvarCommand.Token, cvarCommand.Arguments[0]);
+                    CVarRegistry.WriteTo(cvarCommand.token, reassembledArgs);
                 }
                 catch (Exception ex)
                 {
                     if (ex is CVarRegistryException)
                     {
-                        return "Failed to assign to " + cvarCommand.Token + "\n";
+                        return "Failed to assign to " + cvarCommand.token + "\n";
                     }
                 }
-                return string.Empty;    // TODO: WHY IS THIS EMPTY
+                return string.Empty;
             }
-            else
-                return "Sorry, support for assignment to types spanning more than one space is coming. Eventually.\n";
         }
         
         private static class ConsoleDefaultCommands

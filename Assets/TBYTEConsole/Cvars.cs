@@ -1,5 +1,4 @@
-﻿using UnityEngine;
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace TBYTEConsole
@@ -187,18 +186,19 @@ namespace TBYTEConsole
             {
                 CVarRegistry.Register("version", "0.1");
                 CVarRegistry.Register("cl_playerName", "PlayerName");
-                 
+                CVarRegistry.Register("sensitivity", 3);
+
                 CVarRegistry.Register<float>("sv_timescale", GetTimescale, SetTimescale);
             }
 
             public static void SetTimescale(string value)
             {
-                Time.timeScale = Convert.ToSingle(value);
+                UnityEngine.Time.timeScale = Convert.ToSingle(value);
             }
 
             public static string GetTimescale()
             {
-                return Time.timeScale.ToString();
+                return UnityEngine.Time.timeScale.ToString();
             }
         }
     }
