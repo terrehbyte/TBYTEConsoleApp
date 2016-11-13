@@ -1,5 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Linq.Expressions;
+using System.Reflection;
+using TBYTEConsole.Utilities;
 
 namespace TBYTEConsole
 {
@@ -73,6 +77,99 @@ namespace TBYTEConsole
         static CVarRegistry()
         {
             CVarDefaults.Register();
+            GatherProperties();
+        }
+
+        static private Func<string> GetGetter(MethodInfo method)
+        {
+            method.ThrowIfNull("method");
+
+            if(method.ReturnType != typeof(string) ||
+               method.GetParameters().Length != 0  ||
+               !method.IsStatic)
+            {
+                throw new ArgumentException("Method is unsuitable for use as CVar getter");
+            }
+            
+            var test = Expression.Lambda<Func<string>>(Expression.Call(method)).Compile();
+            return test;
+        }
+
+        static private Action<string> GetSetter(MethodInfo method)
+        { 
+            method.ThrowIfNull("method");
+
+            if (method.ReturnType != typeof(void) ||
+               method.GetParameters().Length != 1 ||
+               !method.IsStatic)
+            {
+                throw new ArgumentException("Method is unsuitable for use as CVar setter");
+            }
+
+
+            var input = Expression.Parameter(typeof(string), "input");
+            var test = Expression.Lambda<Action<string>>(
+                Expression.Call(method, input),
+                input)
+                .Compile();
+            return test;
+        }
+
+        static private ICVarReadWritable[] GatherProperties()
+        {
+            List<ICVarReadWritable> gatheredCVars = new List<ICVarReadWritable>();
+
+            Assembly assembly = Assembly.GetExecutingAssembly();
+
+            var typesWithMyAttribute =
+                from t in assembly.GetTypes()
+                let attributes = t.GetCustomAttributes(typeof(CVarPropertyAttribute), true)
+                where attributes != null && attributes.Length > 0
+                select new { Type = t, Attributes = attributes.Cast<CVarPropertyAttribute>() };
+
+            // create CVarProperty for each properly defined "type"
+            foreach(var res in typesWithMyAttribute)
+            {
+                var type = res.Type;
+                var attribData = (CVarPropertyAttribute)Attribute.GetCustomAttribute(type, typeof(CVarPropertyAttribute));
+
+                var getterMethods =
+                    from m in type.GetMethods(BindingFlags.Static | BindingFlags.Public)
+                    let methods = m.GetCustomAttributes(typeof(CVarPropertyGetterAttribute), false)
+                    where methods != null && methods.Length > 0
+                    select m;
+
+                int count = getterMethods.Count(); 
+
+                if (count != 1) continue;
+
+                var getterMethod = GetGetter(getterMethods.First());
+
+                var setterMethods =
+                    from m in type.GetMethods(BindingFlags.Static | BindingFlags.Public)
+                    let methods = m.GetCustomAttributes(typeof(CVarPropertySetterAttribute), false)
+                    where methods != null && methods.Length > 0
+                    select m;
+
+                count = setterMethods.Count();
+
+                if (count != 1) continue;
+
+                var setterMethod = GetSetter(setterMethods.First());
+
+                Type specType = typeof(CVarProperty<>).MakeGenericType(type);
+                var finalCVar = (ICVarReadWritable)Activator.CreateInstance(specType, attribData.type, getterMethod, setterMethod);
+
+                registry[attribData.token] = finalCVar;
+            }
+
+            return null;
+
+            // Modified from...
+            // http://stackoverflow.com/questions/607178/how-enumerate-all-classes-with-custom-class-attribute
+
+            // Modified from...
+            // http://stackoverflow.com/questions/2933221/can-you-get-a-funct-or-similar-from-a-methodinfo-object    
         }
 
         static Dictionary<string, ICVarReadWritable> registry = new Dictionary<string, ICVarReadWritable>();
@@ -120,6 +217,18 @@ namespace TBYTEConsole
 
         // Adds a property-entry to the CVarRegistry by name and delegates
         static public CVar<T> Register<T>(string cvarName, Func<string> getter, Action<string> setter) where T : IConvertible
+        {
+            if (ContainsCVar(cvarName)) { return null; }
+
+            CVarProperty<T> babyCVar = new CVarProperty<T>(getter, setter);
+
+            registry[cvarName] = babyCVar;
+
+            return new CVar<T>(cvarName, true);
+        }
+
+        // Adds a property-entry to the CVarRegistry by name and delegates
+        static public CVar<T> Register<T>(Type type, string cvarName, Func<string> getter, Action<string> setter) where T : IConvertible
         {
             if (ContainsCVar(cvarName)) { return null; }
 
@@ -180,6 +289,18 @@ namespace TBYTEConsole
             return registry.ContainsKey(cvarName);
         }
 
+        static public string[] GetCVarNames()
+        {
+            List<string> keyNames = new List<string>();
+
+            foreach(var key in registry.Keys)
+            {
+                keyNames.Add(key);
+            }
+
+            return keyNames.ToArray();
+        }
+
         public static class CVarDefaults
         {
             public static void Register()
@@ -187,18 +308,6 @@ namespace TBYTEConsole
                 CVarRegistry.Register("version", "0.1");
                 CVarRegistry.Register("cl_playerName", "PlayerName");
                 CVarRegistry.Register("sensitivity", 3);
-
-                CVarRegistry.Register<float>("sv_timescale", GetTimescale, SetTimescale);
-            }
-
-            public static void SetTimescale(string value)
-            {
-                UnityEngine.Time.timeScale = Convert.ToSingle(value);
-            }
-
-            public static string GetTimescale()
-            {
-                return UnityEngine.Time.timeScale.ToString();
             }
         }
     }
@@ -258,5 +367,33 @@ namespace TBYTEConsole
         {
             CVarRegistry.WriteTo(name, value);
         }
+    }
+
+    [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
+    public class CVarPropertyAttribute : Attribute
+    {
+        public readonly string token;
+        public readonly Type type;
+
+        public CVarPropertyAttribute(string token, Type type)
+        {
+            // runtime check :(
+            if (type is IConvertible) { throw new ArgumentException("CVar must be of type IConvertible"); }
+
+            this.token = token;
+            this.type = type;
+        }
+    }
+
+    [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
+    public class CVarPropertyGetterAttribute : Attribute
+    {
+
+    }
+
+    [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
+    public class CVarPropertySetterAttribute : Attribute
+    {
+
     }
 }

@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Linq;
 using System.Text;
 using System.Collections.Generic;
+using System.Reflection;
 using TBYTEConsole.Utilities;
 
 namespace TBYTEConsole
@@ -45,6 +47,7 @@ namespace TBYTEConsole
             Register(new CCommand("help", ConsoleDefaultCommands.HelpCommand));
             Register(new CCommand("clear", ConsoleDefaultCommands.ClearCommand));
             Register(new CCommand("echo", ConsoleDefaultCommands.EchoCommand));
+            Register(new CCommand("list", ConsoleDefaultCommands.ListCommand));
         }
 
         private static Dictionary<string, CCommand> commands = new Dictionary<string, CCommand>();
@@ -83,6 +86,11 @@ namespace TBYTEConsole
             commands[newCommand.token] = newCommand;
 
             return true;
+        }
+
+        private static CCommand[] GatherCommands()
+        {
+            throw new System.NotImplementedException();
         }
 
         private static ConsoleExpression DecomposeInput(string command)
@@ -176,6 +184,19 @@ namespace TBYTEConsole
                 }
 
                 return bldr.ToString() + "\n";
+            }
+            static public string ListCommand(string[] Arguments)
+            {
+                string output = string.Empty;
+
+                var keyArray = CVarRegistry.GetCVarNames();
+
+                foreach (var key in keyArray)
+                {
+                    output += key + "\n";
+                }
+
+                return output;
             }
         }
     }
