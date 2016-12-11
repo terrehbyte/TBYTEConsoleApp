@@ -42,11 +42,18 @@ namespace TBYTEConsole
         }
     }
 
-    public static class CmdRegistry
+    public abstract class CmdRegistry
+    {
+        public abstract bool Register(CCommand newCommand);
+        public abstract bool ContainsCmd(string cmdName);
+        public abstract string Execute(string cmdName, string[] argv);
+    }
+
+    public class StandardCmdRegistry : CmdRegistry
     {
         private static Dictionary<string, CCommand> commands = new Dictionary<string, CCommand>();
 
-        static CmdRegistry()
+        public StandardCmdRegistry()
         {
             // register default commands
             Register(new CCommand("help", ConsoleCoreCommands.HelpCommand));
@@ -55,7 +62,7 @@ namespace TBYTEConsole
             Register(new CCommand("list", ConsoleCoreCommands.ListCommand));
         }
 
-        public static bool Register(CCommand newCommand)
+        public override bool Register(CCommand newCommand)
         {
             if (commands.ContainsKey(newCommand.token))
             {
@@ -66,20 +73,17 @@ namespace TBYTEConsole
 
             return true;
         }
-
-        private static CCommand[] GatherCommands()
-        {
-            throw new System.NotImplementedException();
-        }
-
-        public static bool ContainsCmd(string cmdName)
+        public override bool ContainsCmd(string cmdName)
         {
             return commands.ContainsKey(cmdName);
         }
-
-        public static string Execute(string cmdName, string[] argv)
+        public override string Execute(string cmdName, string[] argv)
         {
             return commands[cmdName].Execute(argv);
+        }
+        private static CCommand[] GatherCommands()
+        {
+            throw new System.NotImplementedException();
         }
 
         private static class ConsoleCoreCommands
@@ -116,7 +120,7 @@ namespace TBYTEConsole
             {
                 string output = string.Empty;
 
-                var keyArray = CVarRegistry.GetCVarNames();
+                var keyArray = ConsoleSvc.cvarRegistry.GetCVarNames();
 
                 foreach (var key in keyArray)
                 {

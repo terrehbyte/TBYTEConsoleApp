@@ -65,24 +65,24 @@ namespace TBYTEConsole
         }
         private static bool ValidateCommand(ConsoleExpression command)
         {
-            return CmdRegistry.ContainsCmd(command.token);
+            return ConsoleSvc.cmdRegistry.ContainsCmd(command.token);
         }     
         private static string ProcessCommand(ConsoleExpression command)
         {
-            if (CmdRegistry.ContainsCmd(command.token))
-                return CmdRegistry.Execute(command.token, command.arguments);
+            if (ConsoleSvc.cmdRegistry.ContainsCmd(command.token))
+                return ConsoleSvc.cmdRegistry.Execute(command.token, command.arguments);
 
             return string.Format("{0} is not a valid command", command.token);
         }
 
         private static bool ValidateCVar(ConsoleExpression cvarCommand)
         {
-            return CVarRegistry.ContainsCVar(cvarCommand.token);
+            return ConsoleSvc.cvarRegistry.ContainsCVar(cvarCommand.token);
         }
         private static string ProcessCvar(ConsoleExpression cvarCommand)
         {
             if (cvarCommand.arguments.Length == 0)
-                return cvarCommand.token + " = " + CVarRegistry.LookUp(cvarCommand.token).ToString() + "\n";
+                return cvarCommand.token + " = " + ConsoleSvc.cvarRegistry.LookUp(cvarCommand.token).ToString() + "\n";
             else
             {
                 string reassembledArgs = string.Empty;
@@ -95,7 +95,7 @@ namespace TBYTEConsole
 
                 try
                 {
-                    CVarRegistry.WriteTo(cvarCommand.token, reassembledArgs);
+                    ConsoleSvc.cvarRegistry.WriteTo(cvarCommand.token, reassembledArgs);
                 }
                 catch (Exception ex)
                 {
