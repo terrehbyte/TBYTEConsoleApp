@@ -115,6 +115,8 @@ and maintained here in order to maintain working notes and outline goals.
         - string -> T
         - T -> string
     - Read `*.json` files containing declarations of CVars
+    - Add CVarProperty attribute
+        - Specify get/set methods by string/methodName
 2. Add support for config files (`*.cfg`)
 3. Add support for different colors
 4. Add in-game console support
@@ -122,6 +124,7 @@ and maintained here in order to maintain working notes and outline goals.
 6. Figure out a way to alert the user when a CVar is already register
    but the user is attempting to assign a new value
    - Maybe a "readonly" bool on the CVar?
+7. Add support for mirror Debug.Log messages to Console
 
 # LICENSE
 
