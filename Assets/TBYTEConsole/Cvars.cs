@@ -351,7 +351,7 @@ namespace TBYTEConsole
         {
             get
             {
-                return ConsoleSvc.cvarRegistry.LookUp<T>(name);
+                return ConsoleLocator.cvarRegistry.LookUp<T>(name);
             }
         }
 
@@ -360,7 +360,7 @@ namespace TBYTEConsole
         {
             get
             {
-                return ConsoleSvc.cvarRegistry.LookUp(name);
+                return ConsoleLocator.cvarRegistry.LookUp(name);
             }
         }
 
@@ -371,7 +371,7 @@ namespace TBYTEConsole
             name = cvarName;
             type = typeof(T);
 
-            if(!isLazy && !ConsoleSvc.cvarRegistry.ContainsCVar(name))
+            if(!isLazy && !ConsoleLocator.cvarRegistry.ContainsCVar(name))
             {
                 throw new CVarRegistryException("Requested CVar does not exist.");
             }
@@ -389,7 +389,7 @@ namespace TBYTEConsole
         // Writes to the CVar
         public void Write(T value)
         {
-            ConsoleSvc.cvarRegistry.WriteTo(name, value);
+            ConsoleLocator.cvarRegistry.WriteTo(name, value);
         }
     }
 

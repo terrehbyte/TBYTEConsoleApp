@@ -47,11 +47,14 @@ namespace TBYTEConsole
         public abstract bool Register(CCommand newCommand);
         public abstract bool ContainsCmd(string cmdName);
         public abstract string Execute(string cmdName, string[] argv);
+
+        // Returns an array containing the name of each registered CVar
+        public abstract string[] GetCmdNames();
     }
 
     public class StandardCmdRegistry : CmdRegistry
     {
-        private static Dictionary<string, CCommand> commands = new Dictionary<string, CCommand>();
+        private Dictionary<string, CCommand> commands = new Dictionary<string, CCommand>();
 
         public StandardCmdRegistry()
         {
@@ -81,9 +84,14 @@ namespace TBYTEConsole
         {
             return commands[cmdName].Execute(argv);
         }
-        private static CCommand[] GatherCommands()
+        private CCommand[] GatherCommands()
         {
             throw new System.NotImplementedException();
+        }
+
+        public override string[] GetCmdNames()
+        {
+            return commands.Keys.ToArray();
         }
 
         private static class ConsoleCoreCommands
@@ -92,7 +100,9 @@ namespace TBYTEConsole
             {
                 string output = string.Empty;
 
-                foreach (var command in commands.Keys)
+                var cmdNames = ConsoleLocator.cmdRegistry.GetCmdNames();
+
+                foreach (var command in cmdNames)
                 {
                     output += command + "\n";
                 }
@@ -101,8 +111,8 @@ namespace TBYTEConsole
             }
             static public string ClearCommand(string[] Arguments)
             {
-                Console.consoleOutput = string.Empty;
-                return Console.consoleOutput;
+                ConsoleLocator.console.consoleOutput = string.Empty;
+                return ConsoleLocator.console.consoleOutput;
             }
             static public string EchoCommand(string[] Arguments)
             {
@@ -120,7 +130,7 @@ namespace TBYTEConsole
             {
                 string output = string.Empty;
 
-                var keyArray = ConsoleSvc.cvarRegistry.GetCVarNames();
+                var keyArray = ConsoleLocator.cvarRegistry.GetCVarNames();
 
                 foreach (var key in keyArray)
                 {

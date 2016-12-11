@@ -7,7 +7,14 @@ using TBYTEConsole.Utilities;
 
 namespace TBYTEConsole
 {
-    public static class Console
+    public abstract class Console
+    {
+        public string consoleOutput;
+
+        public abstract string ProcessConsoleInput(string command);
+    }
+
+    public class StandardConsole : Console
     {
         private struct ConsoleExpression
         {
@@ -21,9 +28,7 @@ namespace TBYTEConsole
             }
         }
 
-        public static string consoleOutput;
-
-        public static string ProcessConsoleInput(string command)
+        public override string ProcessConsoleInput(string command)
         {
             // remove excess whitespace
             command.Trim();
@@ -46,7 +51,7 @@ namespace TBYTEConsole
             return consoleOutput;
         }
 
-        private static ConsoleExpression DecomposeInput(string command)
+        private ConsoleExpression DecomposeInput(string command)
         {
             command.Trim();
 
@@ -63,26 +68,26 @@ namespace TBYTEConsole
 
             return new ConsoleExpression(cmd, args);
         }
-        private static bool ValidateCommand(ConsoleExpression command)
+        private bool ValidateCommand(ConsoleExpression command)
         {
-            return ConsoleSvc.cmdRegistry.ContainsCmd(command.token);
+            return ConsoleLocator.cmdRegistry.ContainsCmd(command.token);
         }     
-        private static string ProcessCommand(ConsoleExpression command)
+        private string ProcessCommand(ConsoleExpression command)
         {
-            if (ConsoleSvc.cmdRegistry.ContainsCmd(command.token))
-                return ConsoleSvc.cmdRegistry.Execute(command.token, command.arguments);
+            if (ConsoleLocator.cmdRegistry.ContainsCmd(command.token))
+                return ConsoleLocator.cmdRegistry.Execute(command.token, command.arguments);
 
             return string.Format("{0} is not a valid command", command.token);
         }
 
-        private static bool ValidateCVar(ConsoleExpression cvarCommand)
+        private bool ValidateCVar(ConsoleExpression cvarCommand)
         {
-            return ConsoleSvc.cvarRegistry.ContainsCVar(cvarCommand.token);
+            return ConsoleLocator.cvarRegistry.ContainsCVar(cvarCommand.token);
         }
-        private static string ProcessCvar(ConsoleExpression cvarCommand)
+        private string ProcessCvar(ConsoleExpression cvarCommand)
         {
             if (cvarCommand.arguments.Length == 0)
-                return cvarCommand.token + " = " + ConsoleSvc.cvarRegistry.LookUp(cvarCommand.token).ToString() + "\n";
+                return cvarCommand.token + " = " + ConsoleLocator.cvarRegistry.LookUp(cvarCommand.token).ToString() + "\n";
             else
             {
                 string reassembledArgs = string.Empty;
@@ -95,7 +100,7 @@ namespace TBYTEConsole
 
                 try
                 {
-                    ConsoleSvc.cvarRegistry.WriteTo(cvarCommand.token, reassembledArgs);
+                    ConsoleLocator.cvarRegistry.WriteTo(cvarCommand.token, reassembledArgs);
                 }
                 catch (Exception ex)
                 {

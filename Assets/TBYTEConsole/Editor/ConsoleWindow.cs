@@ -51,7 +51,7 @@ namespace TBYTEConsole
                 e.keyCode == KeyCode.Return)
             {
                 consoleScrollPos = new Vector2(0, Mathf.Infinity);
-                consoleDisplay = Console.ProcessConsoleInput(userEntry);
+                consoleDisplay = ConsoleLocator.console.ProcessConsoleInput(userEntry);
                 userEntry = string.Empty;
                 Repaint();
 

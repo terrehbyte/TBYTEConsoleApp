@@ -7,15 +7,17 @@ using TBYTEConsole.Utilities;
 
 namespace TBYTEConsole
 {
-    public static class ConsoleSvc
+    public static class ConsoleLocator
     {
         public static CVarRegistry cvarRegistry { get; private set; }
         public static CmdRegistry  cmdRegistry { get; private set; }
+        public static Console      console { get; private set; }
 
-        static ConsoleSvc()
+        static ConsoleLocator()
         {
             cvarRegistry = new StandardCVarRegistry();
             cmdRegistry = new StandardCmdRegistry();
+            console = new StandardConsole();
         }
     }
 }
