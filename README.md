@@ -36,14 +36,14 @@ CVar named "version" that stores `string` values, try the following:
 ```C#
 
 // Declares and initializes a CVar named "version" with the default string value.
-CVarRegistry.Register<string>("version");
+ConsoleService.cvarRegistry.Register<string>("version");
 
 // Declares and initializes a CVar named "version" with the "0.1" value.
-CVarRegistry.Register<string>("version", "0.1");
+ConsoleService.cvarRegistry.Register<string>("version", "0.1");
 
 // Declares and initializes a CVar named "version" with the "0.1" value.
 // ... the type parameter is inferred from the given initial value.
-CVarRegistry.Register("version", "0.1");
+ConsoleService.cvarRegistry.Register("version", "0.1");
 
 ```
 
@@ -187,6 +187,9 @@ and maintained here in order to maintain working notes and outline goals.
         - Then I won't have to pass the type in as a parameter!
     - Consider handling the conversion from string to `T` for CVarProperty setter...
         - ...or both?
+    - Add a scriptable asset that can be installed into the console via component?
+    - Add a base class that you inherit from to add a variable?
+        - It could even provide info strings like "help"...
 2. Add support for config files (`*.cfg`)
 3. Add support for different colors
 4. Add in-game console support
