@@ -50,27 +50,95 @@ CVarRegistry.Register("version", "0.1");
 ## Property-backed CVar
 
 These really are commands that are used in a manner similar to CVars. Rather
-than storing a value in a registry, these CVars call upon a function to
-retrieve and assign their value.
+than storing a value in a registry, these CVars call upon a method when
+retrieving its value or assigning a value to it.
 
+This revolves around four key pieces of information:
+  1. What **token** will be used to refer to this CVar?
+  2. What **type** of information is this?
+  3. What method is used when **getting** its value?
+  4. What method is used when **setting** its value?
+
+There are a variety of ways to handle this.
+
+You can specify the token, type, and property in the attribute.
 ```C#
-// Mark the declaring class with this attribute.
+[CVarProperty("sv_timeScale", typeof(float), "value")]
+public static class TimeScaleProp
+{
+    static string value
+    {
+        get { return Time.timeScale.ToString(); }
+        set { Time.timeScale = (float)System.Convert.ChangeType(value, typeof(float)); }
+    }
+}
+```
+
+You can specify the token and type in the attribute. Another attribute is
+attached to the property to identify the methods used.
+```C#
 [CVarProperty("sv_timeScale", typeof(float))]
 public static class TimeScaleProp
 {
-    // Mark the setter function with this attribute.
-    [CVarPropertyGetter]
-    static public string getter()
+    [CVarPropertyAccessor]
+    static string value
     {
-        return Time.timeScale.ToString();
+        get { return Time.timeScale.ToString(); }
+        set { Time.timeScale = (float)System.Convert.ChangeType(value, typeof(float)); }
     }
+}
+```
 
-    // Mark the getter function with this attribute.
+You can specify the token, type, getter, and setter methods in the attribute.
+Note that the methods must be static and return/accept a string.
+```C#
+[CVarProperty("sv_timeScale", typeof(float), "getter", "setter")]
+public static class TimeScaleProp
+{
+    static string getter()
+    { return Time.timeScale.ToString(); }
+
+    static void setter(string input)
+    { Time.timeScale = (float)System.Convert.ChangeType(input, typeof(float)); }
+}
+
+// Yes, you could specify the reserved function names for a property as well.
+// In fact, that's exactly what happens if you opt for a property instead!
+```
+
+You can specify the token and type in the attribute. Another attribute is used
+to tag the getter and setter methods. Note that the methods must be static
+and return/accept a string.
+```C#
+[CVarProperty("sv_timeScale", typeof(float))]
+public static class TimeScaleProp
+{
+    [CVarPropertyGetter]
+    static string getter()
+    { return Time.timeScale.ToString(); }
+
     [CVarPropertySetter]
-    static public void setter(string input)
+    static void setter(string input)
+    { Time.timeScale = (float)System.Convert.ChangeType(input, typeof(float)); }
+}
+```
+
+You could also opt to manually register the CVarProperty yourself.
+```C#
+public class RegisterCVarProperties : MonoBehaviour
+{
+    static string timeScale_getter()
+    { return Time.timeScale.ToString(); }
+
+    static void timeScale_setter(string input)
+    { Time.timeScale = (float)System.Convert.ChangeType(input, typeof(float)); }
+
+    void Start()
     {
-        Time.timeScale = (float)System.Convert.ChangeType(input, typeof(float));
-        return;
+        // register the property at runtime in a script!
+        ConsoleService.cvarRegistry.Register<float>("sv_timeScale",    // token 
+                                                    timeScale_getter,  // getter
+                                                    timeScale_setter); // setter
     }
 }
 ```
@@ -89,7 +157,7 @@ public static class GameCommands
 {
     static GameCommands()
     {
-        Console.Register(new CCommand("kill", KillCommand));
+        ConsoleService.cvarRegistry.Register(new CCommand("kill", KillCommand));
     }
 
     // Name: KillCommand
@@ -115,8 +183,10 @@ and maintained here in order to maintain working notes and outline goals.
         - string -> T
         - T -> string
     - Read `*.json` files containing declarations of CVars
-    - Add CVarProperty attribute
-        - Specify get/set methods by string/methodName
+    - Add templated `CVarPropertyDeclaration<T>` class
+        - Then I won't have to pass the type in as a parameter!
+    - Consider handling the conversion from string to `T` for CVarProperty setter...
+        - ...or both?
 2. Add support for config files (`*.cfg`)
 3. Add support for different colors
 4. Add in-game console support
