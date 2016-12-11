@@ -36,14 +36,14 @@ CVar named "version" that stores `string` values, try the following:
 ```C#
 
 // Declares and initializes a CVar named "version" with the default string value.
-ConsoleService.cvarRegistry.Register<string>("version");
+ConsoleLocator.cvarRegistry.Register<string>("version");
 
 // Declares and initializes a CVar named "version" with the "0.1" value.
-ConsoleService.cvarRegistry.Register<string>("version", "0.1");
+ConsoleLocator.cvarRegistry.Register<string>("version", "0.1");
 
 // Declares and initializes a CVar named "version" with the "0.1" value.
 // ... the type parameter is inferred from the given initial value.
-ConsoleService.cvarRegistry.Register("version", "0.1");
+ConsoleLocator.cvarRegistry.Register("version", "0.1");
 
 ```
 
@@ -136,7 +136,7 @@ public class RegisterCVarProperties : MonoBehaviour
     void Start()
     {
         // register the property at runtime in a script!
-        ConsoleService.cvarRegistry.Register<float>("sv_timeScale",    // token 
+        ConsoleLocator.cvarRegistry.Register<float>("sv_timeScale",    // token 
                                                     timeScale_getter,  // getter
                                                     timeScale_setter); // setter
     }
@@ -157,7 +157,7 @@ public static class GameCommands
 {
     static GameCommands()
     {
-        ConsoleService.cvarRegistry.Register(new CCommand("kill", KillCommand));
+        ConsoleLocator.cvarRegistry.Register(new CCommand("kill", KillCommand));
     }
 
     // Name: KillCommand
