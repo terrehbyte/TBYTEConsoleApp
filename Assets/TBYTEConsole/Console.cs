@@ -7,26 +7,6 @@ using TBYTEConsole.Utilities;
 
 namespace TBYTEConsole
 {
-    public struct CCommand
-    {
-        public readonly string token;
-        public readonly Func<string[], string> callback;
-
-        public CCommand(string commandName, Func<string[], string> callback)
-        {
-            commandName.ThrowIfNullOrEmpty("commandName");
-            callback.ThrowIfNull("callback");
-
-            this.token = commandName; 
-            this.callback = callback;
-        }
-
-        public string Execute(string[] argv)
-        {
-            return callback(argv);
-        }
-    }
-    
     public static class Console
     {
         private struct ConsoleExpression
@@ -41,17 +21,7 @@ namespace TBYTEConsole
             }
         }
 
-        static Console()
-        {
-            // register default commands
-            Register(new CCommand("help", ConsoleDefaultCommands.HelpCommand));
-            Register(new CCommand("clear", ConsoleDefaultCommands.ClearCommand));
-            Register(new CCommand("echo", ConsoleDefaultCommands.EchoCommand));
-            Register(new CCommand("list", ConsoleDefaultCommands.ListCommand));
-        }
-
-        private static Dictionary<string, CCommand> commands = new Dictionary<string, CCommand>();
-        private static string consoleOutput;
+        public static string consoleOutput;
 
         public static string ProcessConsoleInput(string command)
         {
@@ -76,23 +46,6 @@ namespace TBYTEConsole
             return consoleOutput;
         }
 
-        public static bool Register(CCommand newCommand)
-        {
-            if(commands.ContainsKey(newCommand.token))
-            {
-                return false;
-            }
-
-            commands[newCommand.token] = newCommand;
-
-            return true;
-        }
-
-        private static CCommand[] GatherCommands()
-        {
-            throw new System.NotImplementedException();
-        }
-
         private static ConsoleExpression DecomposeInput(string command)
         {
             command.Trim();
@@ -112,12 +65,12 @@ namespace TBYTEConsole
         }
         private static bool ValidateCommand(ConsoleExpression command)
         {
-            return commands.ContainsKey(command.token);
+            return CmdRegistry.ContainsCmd(command.token);
         }     
         private static string ProcessCommand(ConsoleExpression command)
         {
-            if (commands.ContainsKey(command.token))
-                return commands[command.token].Execute(command.arguments);
+            if (CmdRegistry.ContainsCmd(command.token))
+                return CmdRegistry.Execute(command.token, command.arguments);
 
             return string.Format("{0} is not a valid command", command.token);
         }
@@ -152,51 +105,6 @@ namespace TBYTEConsole
                     }
                 }
                 return string.Empty;
-            }
-        }
-        
-        private static class ConsoleDefaultCommands
-        {
-            static public string HelpCommand(string[] Arguments)
-            {
-                string output = string.Empty;
-
-                foreach (var command in commands.Keys)
-                {
-                    output += command + "\n";
-                }
-
-                return output;
-            }
-            static public string ClearCommand(string[] Arguments)
-            {
-                consoleOutput = string.Empty;
-                return consoleOutput;
-            }
-            static public string EchoCommand(string[] Arguments)
-            {
-                StringBuilder bldr = new StringBuilder();
-
-                foreach (var arg in Arguments)
-                {
-                    bldr.Append(arg);
-                    bldr.Append(' ');
-                }
-
-                return bldr.ToString() + "\n";
-            }
-            static public string ListCommand(string[] Arguments)
-            {
-                string output = string.Empty;
-
-                var keyArray = CVarRegistry.GetCVarNames();
-
-                foreach (var key in keyArray)
-                {
-                    output += key + "\n";
-                }
-
-                return output;
             }
         }
     }
