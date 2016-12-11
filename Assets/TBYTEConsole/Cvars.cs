@@ -420,13 +420,13 @@ namespace TBYTEConsole
         {
             return cvar.value;
         }
-        public static implicit operator string(CVar<T> cvar)
+        public override string ToString()
         {
-            return cvar.stringValue;
+            return stringValue;
         }
 
         // Writes to the CVar
-        public void Write(T value)
+        public virtual void Write(T value)
         {
             ConsoleLocator.cvarRegistry.WriteTo(name, value);
         }
