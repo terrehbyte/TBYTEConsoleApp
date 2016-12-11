@@ -22,6 +22,21 @@ namespace TBYTEConsole
         }
     }
 
+    public class MethodNotFoundException : CVarRegistryException
+    {
+        public MethodNotFoundException()
+        {
+        }
+        public MethodNotFoundException(string message)
+            : base(message)
+        {
+        }
+        public MethodNotFoundException(string message, Exception inner)
+            : base(message, inner)
+        {
+        }
+    }
+
     public abstract class CVarRegistry
     {
         public CVarRegistry()
@@ -120,6 +135,9 @@ namespace TBYTEConsole
 
         public StandardCVarRegistry()
         {
+            // TODO: consider two step initialize
+            //  1. constructor initializes core commands
+            //  2. Initialize() method must collect user-defined methods?
             Register("version", "0.1");
             Register("cl_playerName", "PlayerName");
             Register("sensitivity", 3);
@@ -127,40 +145,42 @@ namespace TBYTEConsole
             GatherProperties();
         }
 
-        static private void GetCVarPropertyMethods(Type type, out Func<string> getter, out Action<string> setter)
-        { 
-            var prop = (CVarPropertyAttribute)Attribute.GetCustomAttribute(type, typeof(CVarPropertyAttribute));
+        private static MethodInfo[] GetStaticPublicMethodsWithAttribute(Type type, Type attributeType)
+        {
+            var foundMethods =
+                from m in type.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)
+                let methods = m.GetCustomAttributes(attributeType, false)
+                where methods != null && methods.Length > 0
+                select m;
 
-            getter = !string.IsNullOrEmpty(prop.getterName) ? GetGetter(type.GetMethod(prop.getterName)) :
-                                                              GetGetter(type);
+            return foundMethods.ToArray();
+        }
+        private static PropertyInfo[] GetStaticPublicPropertiesWithAttribute(Type type, Type attributeType)
+        {
+            var foundProps =
+                from m in type.GetProperties(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)
+                let properties = m.GetCustomAttributes(attributeType, false)
+                where properties != null && properties.Length > 0
+                select m;
 
-            setter = !string.IsNullOrEmpty(prop.setterName) ? GetSetter(type.GetMethod(prop.setterName)) :
-                                                              GetSetter(type);
+            return foundProps.ToArray();
         }
-        static private Func<string> GetGetter(Type type)
-        { 
-            return GetGetter(GetStaticPublicMethodsWithAttribute(type, typeof(CVarPropertyGetterAttribute)).First());
-        }
-        static private Func<string> GetGetter(MethodInfo method)
+        private static Func<string> GetGetter(MethodInfo method)
         {
             method.ThrowIfNull("method");
 
-            if(method.ReturnType != typeof(string) ||
-               method.GetParameters().Length != 0  ||
+            if (method.ReturnType != typeof(string) ||
+               method.GetParameters().Length != 0 ||
                !method.IsStatic)
             {
                 throw new ArgumentException("Method is unsuitable for use as CVar getter");
             }
-            
+
             var test = Expression.Lambda<Func<string>>(Expression.Call(method)).Compile();
             return test;
         }
-        static private Action<string> GetSetter(Type type)
+        private static Action<string> GetSetter(MethodInfo method)
         {
-            return GetSetter(GetStaticPublicMethodsWithAttribute(type, typeof(CVarPropertySetterAttribute)).First());
-        }
-        static private Action<string> GetSetter(MethodInfo method)
-        { 
             method.ThrowIfNull("method");
 
             if (method.ReturnType != typeof(void) ||
@@ -177,17 +197,20 @@ namespace TBYTEConsole
                 .Compile();
             return test;
         }
+        private static void GetCVarPropertyMethods(Type type, out Func<string> getter, out Action<string> setter)
+        { 
+            var prop = (CVarPropertyAttribute)Attribute.GetCustomAttribute(type, typeof(CVarPropertyAttribute));
+            var accessorProp = GetStaticPublicPropertiesWithAttribute(type, typeof(CVarPropertyAccessorAttribute));
 
-        private static MethodInfo[] GetStaticPublicMethodsWithAttribute(Type type, Type attributeType)
-        {
-            var foundMethods =
-                from m in type.GetMethods(BindingFlags.Static | BindingFlags.Public)
-                let methods = m.GetCustomAttributes(attributeType, false)
-                where methods != null && methods.Length > 0
-                select m;
+            getter = (accessorProp.Count() > 0)             ? GetGetter(accessorProp.First().GetGetMethod(true)) :
+                     !string.IsNullOrEmpty(prop.getterName) ? GetGetter(type.GetMethod(prop.getterName, BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)) :
+                                                              GetGetter(GetStaticPublicMethodsWithAttribute(type, typeof(CVarPropertyGetterAttribute)).First());
 
-            return foundMethods.ToArray();
+            setter = (accessorProp.Count() > 0)             ? GetSetter(accessorProp.First().GetSetMethod(true)) :
+                     !string.IsNullOrEmpty(prop.setterName) ? GetSetter(type.GetMethod(prop.setterName, BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)) :
+                                                              GetSetter(GetStaticPublicMethodsWithAttribute(type, typeof(CVarPropertySetterAttribute)).First());
         }
+
         private ICVarReadWritable[] GatherProperties()
         {
             List<ICVarReadWritable> gatheredCVars = new List<ICVarReadWritable>();
@@ -209,8 +232,17 @@ namespace TBYTEConsole
                 Func<string> getterMethod;
                 Action<string> setterMethod;
 
-                GetCVarPropertyMethods(type, out getterMethod, out setterMethod);
-
+                try
+                {
+                    GetCVarPropertyMethods(type, out getterMethod, out setterMethod); 
+                }
+                catch (Exception ex)
+                {
+                    if (!(ex is ArgumentNullException || ex is MethodNotFoundException)) { throw; }
+                    // TODO: add internal logging system for console
+                    //ConsoleLocator.console.ProcessConsoleInput("echo Failed to find method for " + type.FullName);
+                    continue;
+                }
                 Type specType = typeof(CVarProperty<>).MakeGenericType(type);
                 var finalCVar = (ICVarReadWritable)Activator.CreateInstance(specType, attribData.type, getterMethod, setterMethod);
 
@@ -406,14 +438,13 @@ namespace TBYTEConsole
         public readonly string token;
         public readonly Type type;
 
-        // For internal use when determining what the setter method is w/o the attribute.
-        public string setterName { get; private set; }
-
         // For internal use when determining what the getter method is w/o the attribute.
+        //  - Not valid when the CVarPropertyGetter attribute is used to identify the setter. 
         public string getterName { get; private set; }
 
-        public Func<string> getterFunc { get; private set; }
-        public Action<string> setterFunc { get; private set; }
+        // For internal use when determining what the setter method is w/o the attribute.
+        //  - Not valid when the CVarPropertySetter attribute is used to identify the setter. 
+        public string setterName { get; private set; }
 
         public CVarPropertyAttribute(string token, Type type)
         {
@@ -428,10 +459,15 @@ namespace TBYTEConsole
             this.setterName = setterName;
             this.getterName = getterName;
         }
-        public CVarPropertyAttribute(string token, Type type, Func<string> getter, Action<string> setter) : this(token, type)
+        public CVarPropertyAttribute(string token, Type type, string propertyName) : this(token, type)
         {
-            getterFunc = getter;
-            setterFunc = setter;
+            // TODO: Can I resolve the property name from here?
+            // TODO: IS THIS DEFINED BY THE SPECIFICATION
+            //  - http://stackoverflow.com/questions/23102639/are-c-sharp-properties-actually-methods
+            //    THEY'RE DEFINITELY METHODS SO IT'S OKAY, RIGHT?
+            //    ... oh, it totally is in section 10.3.9.1 http://i.imgur.com/ZXmBmJP.png
+            this.setterName = "set_" + propertyName;
+            this.getterName = "get_" + propertyName;
         }
     }
 
@@ -443,6 +479,12 @@ namespace TBYTEConsole
 
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
     public class CVarPropertySetterAttribute : Attribute
+    {
+
+    }
+
+    [AttributeUsage(AttributeTargets.Property, AllowMultiple = false, Inherited = false)]
+    public class CVarPropertyAccessorAttribute : Attribute
     {
 
     }
