@@ -190,6 +190,7 @@ and maintained here in order to maintain working notes and outline goals.
     - Add a scriptable asset that can be installed into the console via component?
     - Add a base class that you inherit from to add a variable?
         - It could even provide info strings like "help"...
+    - How should you handle CVars created at runtime? reset?
 2. Add support for config files (`*.cfg`)
 3. Add support for different colors
 4. Add in-game console support

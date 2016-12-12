@@ -47,10 +47,13 @@ namespace TBYTEConsole
             // TODO: enforce support for tagged [CVarProperty] classes?
         }
 
-        // Adds an dataentry to the CVarRegistry by name
+        // Adds an entry to the CVarRegistry by name
         public abstract CVar<T> Register<T>(string cvarName);
 
-        // Adds an dataentry to the CVarRegistry by name and sets an initial value
+        // Adds an entry to the CVarRegistry by name and sets an initial value by string
+        //public abstract CVar<T> Register<T>(string cvarName, string initialValue);
+
+        // Adds an entry to the CVarRegistry by name and sets an initial value
         public abstract CVar<T> Register<T>(string cvarName, T initialValue);
 
         // Adds an dataentry to the CVarRegistry by existing CVar
@@ -58,9 +61,6 @@ namespace TBYTEConsole
 
         // Adds a property-entry to the CVarRegistry by name and delegates
         public abstract CVar<T> Register<T>(string cvarName, Func<string> getter, Action<string> setter);
-
-        // Adds a property-entry to the CVarRegistry by name and delegates
-        public abstract CVar<T> Register<T>(Type type, string cvarName, Func<string> getter, Action<string> setter);
 
         // Returns an object for a given key, as the type given
         // - Asserts if the given key does not have a value
@@ -265,6 +265,11 @@ namespace TBYTEConsole
 
         private Dictionary<string, ICVar> registry = new Dictionary<string, ICVar>();
 
+        public override CVar<T> Register<T>(string cvarName)
+        {
+            return Register(cvarName, default(T));
+        }
+
         public override CVar<T> Register<T>(string cvarName, T initialValue)
         {
             if (ContainsCVar(cvarName)) { return null; }
@@ -293,28 +298,12 @@ namespace TBYTEConsole
             return new CVar<T>(cvarName, true);
         }
 
-        public override CVar<T> Register<T>(string cvarName)
-        {
-            return Register(cvarName, default(T));
-        }
-
         public override CVar<T> Register<T>(CVar<T> newCvar)
         {
             return Register<T>(newCvar.name);
         }
 
         public override CVar<T> Register<T>(string cvarName, Func<string> getter, Action<string> setter)
-        {
-            if (ContainsCVar(cvarName)) { return null; }
-
-            DelegateCVar<T> babyCVar = new DelegateCVar<T>(getter, setter);
-
-            registry[cvarName] = babyCVar;
-
-            return new CVar<T>(cvarName, true);
-        }
-
-        public override CVar<T> Register<T>(Type type, string cvarName, Func<string> getter, Action<string> setter)
         {
             if (ContainsCVar(cvarName)) { return null; }
 
@@ -394,24 +383,18 @@ namespace TBYTEConsole
         public readonly string name;
 
         // The type of the CVar accessed by this object.
-        public readonly Type type;
+        public Type type { get { return typeof(T); } }
 
-        // The value of the CVar as its type.
+        // The value of the CVar as the type given for this accessor.
         public T value
         {
-            get
-            {
-                return ConsoleLocator.cvarRegistry.LookUp<T>(name);
-            }
+            get { return ConsoleLocator.cvarRegistry.LookUp<T>(name); }
         }
 
-        // The string-backed value of the CVar.
+        // The value of the CVar as a string.
         public string stringValue
         {
-            get
-            {
-                return ConsoleLocator.cvarRegistry.LookUp(name);
-            }
+            get { return ConsoleLocator.cvarRegistry.LookUp(name); }
         }
 
         // Creates an accessor to a registered CVar
@@ -419,7 +402,6 @@ namespace TBYTEConsole
         public CVar(string cvarName, bool isLazy = false)
         {
             name = cvarName;
-            type = typeof(T);
 
             if(!isLazy && !ConsoleLocator.cvarRegistry.ContainsCVar(name))
             {
@@ -427,7 +409,7 @@ namespace TBYTEConsole
             }
         }
 
-        // 
+        // Implicitly returns the value of the CVar as the type of this accessor.
         public static implicit operator T(CVar<T> cvar)
         {
             return cvar.value;
@@ -439,8 +421,16 @@ namespace TBYTEConsole
             return stringValue;
         }
 
-        // Writes to the CVar
+        // Writes a value to the CVar.
+        //  - Will fail if the value cannot be converted into the CVar's type.
         public virtual void Write(T value)
+        {
+            ConsoleLocator.cvarRegistry.WriteTo(name, value);
+        }
+
+        // Writes a value to the CVar.
+        //  - Will fail if the string cannot be converted into the CVar's type.
+        public virtual void Write(string value)
         {
             ConsoleLocator.cvarRegistry.WriteTo(name, value);
         }

@@ -9,6 +9,26 @@ public class DisplayCVar : MonoBehaviour
     public Text label;
     public string cvarName = "version";
 
+    static string getter()
+    {
+        return "getter";
+    }
+    static void setter(string input)
+    {
+        return;
+    }
+
+    void Start()
+    {
+        // test runtime methods
+        var reg = ConsoleLocator.cvarRegistry;
+
+        reg.Register<string>("cvar1");
+        reg.Register("cvar2", "str");
+        reg.Register(new CVar<string>("cvar3", true));
+        reg.Register<string>("cvar4", getter, setter);
+    }
+
     void Update()
     {
         CVar<string> versionString = new CVar<string>(cvarName);
