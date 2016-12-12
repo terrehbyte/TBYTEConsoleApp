@@ -18,7 +18,7 @@ ProjectSettings/            Special folder for settings for Unity project.
 
 # Quick Start
 
-There are three major types of tokens that can be defined:
+There are four major types of tokens that can be defined:
 
 **Contents**
 
