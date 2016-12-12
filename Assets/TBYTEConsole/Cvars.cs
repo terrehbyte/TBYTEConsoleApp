@@ -5,6 +5,9 @@ using System.Linq.Expressions;
 using System.Reflection;
 using TBYTEConsole.Utilities;
 
+using System;
+using System.ComponentModel;
+
 namespace TBYTEConsole
 {
     public class CVarRegistryException : Exception
@@ -44,31 +47,31 @@ namespace TBYTEConsole
             // TODO: enforce support for tagged [CVarProperty] classes?
         }
 
-        // Adds an dataentry to the CVarRegistry by name and sets an initial value
-        public abstract CVar<T> Register<T>(string cvarName, T initialValue) where T : IConvertible;
-
         // Adds an dataentry to the CVarRegistry by name
-        public abstract CVar<T> Register<T>(string cvarName) where T : IConvertible;
+        public abstract CVar<T> Register<T>(string cvarName);
+
+        // Adds an dataentry to the CVarRegistry by name and sets an initial value
+        public abstract CVar<T> Register<T>(string cvarName, T initialValue);
 
         // Adds an dataentry to the CVarRegistry by existing CVar
-        public abstract CVar<T> Register<T>(CVar<T> newCvar) where T : IConvertible;
+        public abstract CVar<T> Register<T>(CVar<T> newCvar);
 
         // Adds a property-entry to the CVarRegistry by name and delegates
-        public abstract CVar<T> Register<T>(string cvarName, Func<string> getter, Action<string> setter) where T : IConvertible;
+        public abstract CVar<T> Register<T>(string cvarName, Func<string> getter, Action<string> setter);
 
         // Adds a property-entry to the CVarRegistry by name and delegates
-        public abstract CVar<T> Register<T>(Type type, string cvarName, Func<string> getter, Action<string> setter) where T : IConvertible;
+        public abstract CVar<T> Register<T>(Type type, string cvarName, Func<string> getter, Action<string> setter);
 
         // Returns an object for a given key, as the type given
         // - Asserts if the given key does not have a value
-        public abstract T LookUp<T>(string cvarName) where T : IConvertible;
+        public abstract T LookUp<T>(string cvarName);
 
         // Returns the string-backed data store for a given CVar
         public abstract string LookUp(string cvarName);
 
         // Assigns a value to the specified CVar entry
         // - Raises an exception if the value could not be converted into a string
-        public abstract void WriteTo<T>(string cvarName, T value) where T : IConvertible;
+        public abstract void WriteTo<T>(string cvarName, T value) ;
 
         // Assigns a string value to the specified CVar entry
         // - Raises an exception if the string could not be converted into CVar type
@@ -83,25 +86,26 @@ namespace TBYTEConsole
 
     public class StandardCVarRegistry : CVarRegistry
     {
-        private interface ICVarReadWritable
+        private interface ICVar
         {
             Type type { get; }
             string stringValue { get; set; }
         }
 
-        private class CVarProperty<T> : ICVarReadWritable
+        // Delegate-backed CVar.
+        private class DelegateCVar<T> : ICVar
         {
             Func<string> getter;
             Action<string> setter;
 
-            public CVarProperty(Type propType, Func<string> getter, Action<string> setter)
+            public DelegateCVar(Type propType, Func<string> getter, Action<string> setter)
             {
                 type = propType;
 
                 this.getter = getter;
                 this.setter = setter;
             }
-            public CVarProperty(Func<string> getter, Action<string> setter) : this(typeof(T), getter, setter)
+            public DelegateCVar(Func<string> getter, Action<string> setter) : this(typeof(T), getter, setter)
             {
             }
 
@@ -118,14 +122,15 @@ namespace TBYTEConsole
                 }
             }
         }
-        private class CVarData<T> : ICVarReadWritable
+        // String-backed CVar.
+        private class StringCVar<T> : ICVar
         {
-            public CVarData(Type dataType, string initialValue)
+            public StringCVar(Type dataType, string initialValue)
             {
                 type = dataType;
                 stringValue = initialValue;
             }
-            public CVarData(string initialValue) : this(typeof(T), initialValue)
+            public StringCVar(string initialValue) : this(typeof(T), initialValue)
             {
             }
             
@@ -211,9 +216,9 @@ namespace TBYTEConsole
                                                               GetSetter(GetStaticPublicMethodsWithAttribute(type, typeof(CVarPropertySetterAttribute)).First());
         }
 
-        private ICVarReadWritable[] GatherProperties()
+        private ICVar[] GatherProperties()
         {
-            List<ICVarReadWritable> gatheredCVars = new List<ICVarReadWritable>();
+            List<ICVar> gatheredCVars = new List<ICVar>();
 
             Assembly assembly = Assembly.GetExecutingAssembly();
 
@@ -243,8 +248,8 @@ namespace TBYTEConsole
                     //ConsoleLocator.console.ProcessConsoleInput("echo Failed to find method for " + type.FullName);
                     continue;
                 }
-                Type specType = typeof(CVarProperty<>).MakeGenericType(type);
-                var finalCVar = (ICVarReadWritable)Activator.CreateInstance(specType, attribData.type, getterMethod, setterMethod);
+                Type specType = typeof(DelegateCVar<>).MakeGenericType(type);
+                var finalCVar = (ICVar)Activator.CreateInstance(specType, attribData.type, getterMethod, setterMethod);
 
                 registry[attribData.token] = finalCVar;
             }
@@ -258,16 +263,16 @@ namespace TBYTEConsole
             // http://stackoverflow.com/questions/2933221/can-you-get-a-funct-or-similar-from-a-methodinfo-object    
         }
 
-        private Dictionary<string, ICVarReadWritable> registry = new Dictionary<string, ICVarReadWritable>();
+        private Dictionary<string, ICVar> registry = new Dictionary<string, ICVar>();
 
         public override CVar<T> Register<T>(string cvarName, T initialValue)
         {
             if (ContainsCVar(cvarName)) { return null; }
 
-            CVarData<T> babyCVar;
+            StringCVar<T> babyCVar;
             try
             {
-                babyCVar = new CVarData<T>(initialValue.ToString());
+                babyCVar = new StringCVar<T>(initialValue.ToString());
             }
             catch (NullReferenceException ex)
             {
@@ -275,7 +280,7 @@ namespace TBYTEConsole
                 //   - `default(String)` yields `null` since it's a ref type
                 if (typeof(T) == typeof(String))
                 {
-                    babyCVar = new CVarData<T>(string.Empty);
+                    babyCVar = new StringCVar<T>(string.Empty);
                 }
                 else
                 {
@@ -302,7 +307,7 @@ namespace TBYTEConsole
         {
             if (ContainsCVar(cvarName)) { return null; }
 
-            CVarProperty<T> babyCVar = new CVarProperty<T>(getter, setter);
+            DelegateCVar<T> babyCVar = new DelegateCVar<T>(getter, setter);
 
             registry[cvarName] = babyCVar;
 
@@ -313,7 +318,7 @@ namespace TBYTEConsole
         {
             if (ContainsCVar(cvarName)) { return null; }
 
-            CVarProperty<T> babyCVar = new CVarProperty<T>(getter, setter);
+            DelegateCVar<T> babyCVar = new DelegateCVar<T>(getter, setter);
 
             registry[cvarName] = babyCVar;
 
@@ -322,7 +327,10 @@ namespace TBYTEConsole
 
         public override T LookUp<T>(string cvarName)
         {
-            return (T)Convert.ChangeType(registry[cvarName].stringValue, typeof(T));
+            var cvar = registry[cvarName];
+
+            TypeConverter converter = TypeDescriptor.GetConverter(typeof(T));
+            return (T)(converter.ConvertFromString(cvar.stringValue));
         }
 
         public override string LookUp(string cvarName)
@@ -332,22 +340,28 @@ namespace TBYTEConsole
 
         public override void WriteTo<T>(string cvarName, T value)
         {
-            try
+            var cvar = registry[cvarName];
+
+            TypeConverter converter = TypeDescriptor.GetConverter(typeof(T));
+            if(converter.CanConvertTo(cvar.type))
             {
-                registry[cvarName].stringValue = Convert.ToString(value);
+                registry[cvarName].stringValue = converter.ConvertToString(value);
             }
-            catch (Exception ex)
+            else
             {
-                throw new CVarRegistryException("Failed to convert value to string for storage.", ex);
+                throw new CVarRegistryException("Failed to convert value to string for storage.");
             }
         }
 
         public override void WriteTo(string cvarName, string value)
         {
+            var cvar = registry[cvarName];
+            TypeConverter converter = TypeDescriptor.GetConverter(cvar.type);
+
             // perform runtime check to see if string value is valid for this type
             try
             {
-                var data = Convert.ChangeType(value, registry[cvarName].type);
+                converter.ConvertFromString(value);
             }
             catch (Exception ex)
             {
@@ -366,10 +380,7 @@ namespace TBYTEConsole
         {
             List<string> keyNames = new List<string>();
 
-            foreach(var key in registry.Keys)
-            {
-                keyNames.Add(key);
-            }
+            foreach(var key in registry.Keys) { keyNames.Add(key); }
 
             return keyNames.ToArray();
         }
@@ -377,7 +388,7 @@ namespace TBYTEConsole
 
     // Type-safe accessor for registered CVar
     // - Bypassing the registration check will allow the creation of accessors for non-existant CVars
-    public class CVar<T> where T : IConvertible
+    public class CVar<T> 
     {
         // The name of the CVar accessed by this object.
         public readonly string name;
@@ -416,10 +427,13 @@ namespace TBYTEConsole
             }
         }
 
+        // 
         public static implicit operator T(CVar<T> cvar)
         {
             return cvar.value;
         }
+
+        // Provides the string representation of the CVar.
         public override string ToString()
         {
             return stringValue;
@@ -432,6 +446,7 @@ namespace TBYTEConsole
         }
     }
 
+    // TODO: does inherited affect inherited properties?
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
     public class CVarPropertyAttribute : Attribute
     {
