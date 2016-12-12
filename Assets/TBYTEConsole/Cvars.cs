@@ -82,10 +82,14 @@ namespace TBYTEConsole
 
         // Returns an array containing the name of each registered CVar
         public abstract string[] GetCVarNames();
+
+        // Searches and registers CVars declared by attribute.
+        public abstract void GatherCVars();
     }
 
     public class StandardCVarRegistry : CVarRegistry
     {
+        // Common interface for CVar access.
         private interface ICVar
         {
             Type type { get; }
@@ -93,48 +97,36 @@ namespace TBYTEConsole
         }
 
         // Delegate-backed CVar.
+        //  - where T is the backing type
         private class DelegateCVar<T> : ICVar
         {
             Func<string> getter;
             Action<string> setter;
 
-            public DelegateCVar(Type propType, Func<string> getter, Action<string> setter)
+            public DelegateCVar(Func<string> getter, Action<string> setter)
             {
-                type = propType;
-
                 this.getter = getter;
                 this.setter = setter;
             }
-            public DelegateCVar(Func<string> getter, Action<string> setter) : this(typeof(T), getter, setter)
-            {
-            }
 
-            public Type type { get; private set; }
+            public Type type { get { return typeof(T); } }
             public string stringValue
             {
-                get
-                {
-                    return getter();
-                }
-                set
-                {
-                    setter(value);
-                }
+                get { return getter(); }
+                set { setter(value); }
             }
         }
+
         // String-backed CVar.
+        //  - where T is the backing type
         private class StringCVar<T> : ICVar
         {
-            public StringCVar(Type dataType, string initialValue)
+            public StringCVar(string initialValue)
             {
-                type = dataType;
                 stringValue = initialValue;
             }
-            public StringCVar(string initialValue) : this(typeof(T), initialValue)
-            {
-            }
-            
-            public Type type { get; private set; }
+
+            public Type type { get { return typeof(T); } }
             public string stringValue { get; set; }
         }
 
@@ -147,7 +139,7 @@ namespace TBYTEConsole
             Register("cl_playerName", "PlayerName");
             Register("sensitivity", 3);
 
-            GatherProperties();
+            GatherCVars();
         }
 
         private static MethodInfo[] GetStaticPublicMethodsWithAttribute(Type type, Type attributeType)
@@ -214,53 +206,6 @@ namespace TBYTEConsole
             setter = (accessorProp.Count() > 0)             ? GetSetter(accessorProp.First().GetSetMethod(true)) :
                      !string.IsNullOrEmpty(prop.setterName) ? GetSetter(type.GetMethod(prop.setterName, BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)) :
                                                               GetSetter(GetStaticPublicMethodsWithAttribute(type, typeof(CVarPropertySetterAttribute)).First());
-        }
-
-        private ICVar[] GatherProperties()
-        {
-            List<ICVar> gatheredCVars = new List<ICVar>();
-
-            Assembly assembly = Assembly.GetExecutingAssembly();
-
-            var typesWithMyAttribute =
-                from t in assembly.GetTypes()
-                let attributes = t.GetCustomAttributes(typeof(CVarPropertyAttribute), true)
-                where attributes != null && attributes.Length > 0
-                select new { Type = t, Attributes = attributes.Cast<CVarPropertyAttribute>() };
-
-            // create CVarProperty for each properly defined "type"
-            foreach(var res in typesWithMyAttribute)
-            {
-                var type = res.Type;
-                var attribData = (CVarPropertyAttribute)Attribute.GetCustomAttribute(type, typeof(CVarPropertyAttribute));
-
-                Func<string> getterMethod;
-                Action<string> setterMethod;
-
-                try
-                {
-                    GetCVarPropertyMethods(type, out getterMethod, out setterMethod); 
-                }
-                catch (Exception ex)
-                {
-                    if (!(ex is ArgumentNullException || ex is MethodNotFoundException)) { throw; }
-                    // TODO: add internal logging system for console
-                    //ConsoleLocator.console.ProcessConsoleInput("echo Failed to find method for " + type.FullName);
-                    continue;
-                }
-                Type specType = typeof(DelegateCVar<>).MakeGenericType(type);
-                var finalCVar = (ICVar)Activator.CreateInstance(specType, attribData.type, getterMethod, setterMethod);
-
-                registry[attribData.token] = finalCVar;
-            }
-
-            return null;
-
-            // Modified from...
-            // http://stackoverflow.com/questions/607178/how-enumerate-all-classes-with-custom-class-attribute
-
-            // Modified from...
-            // http://stackoverflow.com/questions/2933221/can-you-get-a-funct-or-similar-from-a-methodinfo-object    
         }
 
         private Dictionary<string, ICVar> registry = new Dictionary<string, ICVar>();
@@ -373,6 +318,49 @@ namespace TBYTEConsole
 
             return keyNames.ToArray();
         }
+
+        public override void GatherCVars()
+        {
+            Assembly assembly = Assembly.GetExecutingAssembly();
+
+            var typesWithMyAttribute =
+                from t in assembly.GetTypes()
+                let attributes = t.GetCustomAttributes(typeof(CVarPropertyAttribute), true)
+                where attributes != null && attributes.Length > 0
+                select new { Type = t, Attributes = attributes.Cast<CVarPropertyAttribute>() };
+
+            // create CVarProperty for each properly defined "type"
+            foreach (var res in typesWithMyAttribute)
+            {
+                var type = res.Type;
+                var attribData = (CVarPropertyAttribute)Attribute.GetCustomAttribute(type, typeof(CVarPropertyAttribute));
+
+                Func<string> getterMethod;
+                Action<string> setterMethod;
+
+                try
+                {
+                    GetCVarPropertyMethods(type, out getterMethod, out setterMethod);
+                }
+                catch (Exception ex)
+                {
+                    if (!(ex is ArgumentNullException || ex is MethodNotFoundException)) { throw; }
+                    // TODO: add internal logging system for console
+                    //ConsoleLocator.console.ProcessConsoleInput("echo Failed to find method for " + type.FullName);
+                    continue;
+                }
+                Type specType = typeof(DelegateCVar<>).MakeGenericType(type); 
+                var finalCVar = (ICVar)Activator.CreateInstance(specType, getterMethod, setterMethod);
+
+                registry[attribData.token] = finalCVar;
+            }
+
+            // Modified from...
+            // http://stackoverflow.com/questions/607178/how-enumerate-all-classes-with-custom-class-attribute
+
+            // Modified from...
+            // http://stackoverflow.com/questions/2933221/can-you-get-a-funct-or-similar-from-a-methodinfo-object  
+        }
     }
 
     // Type-safe accessor for registered CVar
@@ -410,7 +398,7 @@ namespace TBYTEConsole
         }
 
         // Implicitly returns the value of the CVar as the type of this accessor.
-        public static implicit operator T(CVar<T> cvar)
+        public static implicit operator T(CVar<T> cvar) 
         {
             return cvar.value;
         }
