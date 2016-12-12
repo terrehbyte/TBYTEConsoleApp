@@ -13,11 +13,17 @@ namespace TBYTEConsole
         public static CmdRegistry  cmdRegistry { get; private set; }
         public static Console      console { get; private set; }
 
-        static ConsoleLocator()
+        public static void Initialize()
         {
             cvarRegistry = new StandardCVarRegistry();
             cmdRegistry = new StandardCmdRegistry();
             console = new StandardConsole();
+        }
+
+        static ConsoleLocator()
+        {
+            // make this editor only?
+            Initialize();
         }
     }
 }

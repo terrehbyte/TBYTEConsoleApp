@@ -18,6 +18,12 @@ namespace TBYTEConsole
             GetWindow(typeof(ConsoleWindow));
         }
 
+        [MenuItem("TBYTEConsole/Reinitialize Console")]
+        public static void ReinitializeConsole()
+        {
+            ConsoleLocator.Initialize();
+        }
+
         void OnEnable()
         {
             titleContent = new GUIContent("Console");
