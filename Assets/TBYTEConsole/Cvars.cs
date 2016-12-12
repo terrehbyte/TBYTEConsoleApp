@@ -1,12 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using TBYTEConsole.Utilities;
-
-using System;
-using System.ComponentModel;
 
 namespace TBYTEConsole
 {
@@ -40,12 +38,12 @@ namespace TBYTEConsole
         }
     }
 
+    // TODO: enforce support for tagged [CVarProperty] classes?
+
     public abstract class CVarRegistry
     {
-        public CVarRegistry()
-        {
-            // TODO: enforce support for tagged [CVarProperty] classes?
-        }
+        // Specifies that both public and non-public members are to be included in the search.
+        protected const BindingFlags Any = BindingFlags.Public | BindingFlags.NonPublic;
 
         // Adds an entry to the CVarRegistry by name
         public abstract CVar<T> Register<T>(string cvarName);
@@ -61,6 +59,8 @@ namespace TBYTEConsole
 
         // Adds a property-entry to the CVarRegistry by name and delegates
         public abstract CVar<T> Register<T>(string cvarName, Func<string> getter, Action<string> setter);
+
+        public abstract void RegisterStaticMembers<T>();
 
         // Returns an object for a given key, as the type given
         // - Asserts if the given key does not have a value
@@ -90,7 +90,7 @@ namespace TBYTEConsole
     public class StandardCVarRegistry : CVarRegistry
     {
         // Common interface for CVar access.
-        private interface ICVar
+        protected interface ICVar
         {
             Type type { get; }
             string stringValue { get; set; }
@@ -98,7 +98,7 @@ namespace TBYTEConsole
 
         // Delegate-backed CVar.
         //  - where T is the backing type
-        private class DelegateCVar<T> : ICVar
+        protected class DelegateCVar<T> : ICVar
         {
             Func<string> getter;
             Action<string> setter;
@@ -119,7 +119,7 @@ namespace TBYTEConsole
 
         // String-backed CVar.
         //  - where T is the backing type
-        private class StringCVar<T> : ICVar
+        protected class StringCVar<T> : ICVar
         {
             public StringCVar(string initialValue)
             {
@@ -128,6 +128,35 @@ namespace TBYTEConsole
 
             public Type type { get { return typeof(T); } }
             public string stringValue { get; set; }
+        }
+
+        // Field-backed CVar.
+        //  - where T is the backing type
+        protected class FieldCVar<T> : ICVar
+        {
+            public readonly FieldInfo field;
+            public object instance;
+
+            public FieldCVar(FieldInfo field, object instance)
+            {
+                this.field = field;
+                this.instance = instance;
+            }
+
+            public Type type { get { return typeof(T); } }
+            public string stringValue
+            {
+                get
+                {
+                    TypeConverter converter = TypeDescriptor.GetConverter(type);
+                    return converter.ConvertToString(field.GetValue(instance));
+                }
+                set
+                {
+                    TypeConverter converter = TypeDescriptor.GetConverter(type);
+                    field.SetValue(instance, converter.ConvertFromString(value));
+                }
+            }
         }
 
         public StandardCVarRegistry()
@@ -196,7 +225,7 @@ namespace TBYTEConsole
         }
         private static void GetCVarPropertyMethods(Type type, out Func<string> getter, out Action<string> setter)
         { 
-            var prop = (CVarPropertyAttribute)Attribute.GetCustomAttribute(type, typeof(CVarPropertyAttribute));
+            var prop = (CVarPropertyDescriptorAttribute)Attribute.GetCustomAttribute(type, typeof(CVarPropertyDescriptorAttribute));
             var accessorProp = GetStaticPublicPropertiesWithAttribute(type, typeof(CVarPropertyAccessorAttribute));
 
             getter = (accessorProp.Count() > 0)             ? GetGetter(accessorProp.First().GetGetMethod(true)) :
@@ -208,7 +237,7 @@ namespace TBYTEConsole
                                                               GetSetter(GetStaticPublicMethodsWithAttribute(type, typeof(CVarPropertySetterAttribute)).First());
         }
 
-        private Dictionary<string, ICVar> registry = new Dictionary<string, ICVar>();
+        protected Dictionary<string, ICVar> registry = new Dictionary<string, ICVar>();
 
         public override CVar<T> Register<T>(string cvarName)
         {
@@ -325,15 +354,15 @@ namespace TBYTEConsole
 
             var typesWithMyAttribute =
                 from t in assembly.GetTypes()
-                let attributes = t.GetCustomAttributes(typeof(CVarPropertyAttribute), true)
+                let attributes = t.GetCustomAttributes(typeof(CVarPropertyDescriptorAttribute), true)
                 where attributes != null && attributes.Length > 0
-                select new { Type = t, Attributes = attributes.Cast<CVarPropertyAttribute>() };
+                select new { Type = t, Attributes = attributes.Cast<CVarPropertyDescriptorAttribute>() };
 
             // create CVarProperty for each properly defined "type"
             foreach (var res in typesWithMyAttribute)
             {
                 var type = res.Type;
-                var attribData = (CVarPropertyAttribute)Attribute.GetCustomAttribute(type, typeof(CVarPropertyAttribute));
+                var attribData = (CVarPropertyDescriptorAttribute)Attribute.GetCustomAttribute(type, typeof(CVarPropertyDescriptorAttribute));
 
                 Func<string> getterMethod;
                 Action<string> setterMethod;
@@ -360,6 +389,48 @@ namespace TBYTEConsole
 
             // Modified from...
             // http://stackoverflow.com/questions/2933221/can-you-get-a-funct-or-similar-from-a-methodinfo-object  
+        }
+
+        public override void RegisterStaticMembers<T>()
+        {
+            var type = typeof(T);
+
+            // iterate over each field and check for the CVarAttribute
+            foreach (var fieldInfo in type.GetFields(Any | BindingFlags.Static | BindingFlags.GetField))
+            {
+                // try to fetch attribute
+                var attributes = fieldInfo.GetCustomAttributes(typeof(CVarAttribute), true);
+
+                // skip if not found
+                if (attributes.Count() < 1)
+                    continue;
+
+                var cvarDescriptor = attributes.First() as CVarAttribute;
+
+                Type specType = typeof(FieldCVar<>).MakeGenericType(fieldInfo.FieldType);
+                var finalCVar = (ICVar)Activator.CreateInstance(specType, fieldInfo, null);
+
+                registry.Add(cvarDescriptor.name, finalCVar);
+                WriteTo(cvarDescriptor.name, cvarDescriptor.defaultValue);
+            }
+
+            // iterate over each property and check for the CVarAttribute
+            foreach (var propInfo in type.GetProperties(Any | BindingFlags.Static | BindingFlags.GetProperty))
+            {
+                // try to fetch attribute
+                var attributes = propInfo.GetCustomAttributes(typeof(CVarPropertyAttribute), true);
+
+                // skip if not found
+                if (attributes.Count() < 1)
+                    continue;
+
+                var cvarDescriptor = attributes.First() as CVarPropertyAttribute;
+
+                Type specType = typeof(DelegateCVar<>).MakeGenericType(propInfo.PropertyType);
+                var finalCVar = (ICVar)Activator.CreateInstance(specType, GetGetter(propInfo.GetGetMethod(true)), GetSetter(propInfo.GetSetMethod(true))); 
+
+                registry.Add(cvarDescriptor.name, finalCVar);
+            }
         }
     }
 
@@ -425,8 +496,36 @@ namespace TBYTEConsole
     }
 
     // TODO: does inherited affect inherited properties?
-    [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
+    [AttributeUsage(AttributeTargets.Field, AllowMultiple = false, Inherited = false)]
+    public class CVarAttribute : Attribute
+    {
+        public readonly string name;
+        public readonly string defaultValue;
+
+        public CVarAttribute(string name, string defaultValue="")
+        {
+            this.name = name;
+            this.defaultValue = defaultValue;
+        }
+    }
+
+    // TODO: does inherited affect inherited properties?
+    [AttributeUsage(AttributeTargets.Property, AllowMultiple = false, Inherited = false)]
     public class CVarPropertyAttribute : Attribute
+    {
+        public readonly string name;
+        public readonly string defaultValue;
+
+        public CVarPropertyAttribute(string name, string defaultValue = "")
+        {
+            this.name = name;
+            this.defaultValue = defaultValue;
+        }
+    }
+
+    // TODO: does inherited affect inherited properties?
+    [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
+    public class CVarPropertyDescriptorAttribute : Attribute
     {
         public readonly string token;
         public readonly Type type;
@@ -439,7 +538,7 @@ namespace TBYTEConsole
         //  - Not valid when the CVarPropertySetter attribute is used to identify the setter. 
         public string setterName { get; private set; }
 
-        public CVarPropertyAttribute(string token, Type type)
+        public CVarPropertyDescriptorAttribute(string token, Type type)
         {
             // runtime check :(
             if (type is IConvertible) { throw new ArgumentException("CVar must be of type IConvertible"); }
@@ -447,12 +546,12 @@ namespace TBYTEConsole
             this.token = token;
             this.type = type;
         }
-        public CVarPropertyAttribute(string token, Type type, string getterName, string setterName) : this(token, type)
+        public CVarPropertyDescriptorAttribute(string token, Type type, string getterName, string setterName) : this(token, type)
         {
             this.setterName = setterName;
             this.getterName = getterName;
         }
-        public CVarPropertyAttribute(string token, Type type, string propertyName) : this(token, type)
+        public CVarPropertyDescriptorAttribute(string token, Type type, string propertyName) : this(token, type)
         {
             // TODO: Can I resolve the property name from here?
             // TODO: IS THIS DEFINED BY THE SPECIFICATION
@@ -464,21 +563,15 @@ namespace TBYTEConsole
         }
     }
 
+    // Tags a static method as the getter for a CVarProperty.
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
-    public class CVarPropertyGetterAttribute : Attribute
-    {
+    public class CVarPropertyGetterAttribute : Attribute { }
 
-    }
-
+    // Tags a static method as the setter for a CVarProperty.
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
-    public class CVarPropertySetterAttribute : Attribute
-    {
+    public class CVarPropertySetterAttribute : Attribute { }
 
-    }
-
+    // Tags a static property as the getter and setter for a CVarProperty.
     [AttributeUsage(AttributeTargets.Property, AllowMultiple = false, Inherited = false)]
-    public class CVarPropertyAccessorAttribute : Attribute
-    {
-
-    }
+    public class CVarPropertyAccessorAttribute : Attribute { }
 }

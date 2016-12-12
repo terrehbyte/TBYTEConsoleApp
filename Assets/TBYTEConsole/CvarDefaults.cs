@@ -2,7 +2,7 @@
 using TBYTEConsole;
 
 // 1. Tag the getter/setter method w/ an attribute.
-[CVarProperty("sv_timeScale", typeof(float))]
+[CVarPropertyDescriptor("sv_timeScale", typeof(float))]
 public static class TimeScaleProp
 {
     [CVarPropertyGetter]
@@ -13,7 +13,7 @@ public static class TimeScaleProp
 }
 
 // 2. Specify the getter/setter method by name.
-[CVarProperty("sv_fixedTimestep", typeof(float), "getter", "setter")]
+[CVarPropertyDescriptor("sv_fixedTimestep", typeof(float), "getter", "setter")]
 public static class FixedTimeScaleProp
 {
     static public string getter() { return Time.fixedDeltaTime.ToString(); }
@@ -22,7 +22,7 @@ public static class FixedTimeScaleProp
 }
 
 // 3. Specify a get/set property by name.
-[CVarProperty("sv_fixedTimestepValue", typeof(float), "value")]
+[CVarPropertyDescriptor("sv_fixedTimestepValue", typeof(float), "value")]
 public static class FixedTimeScalePropVal
 {
     static string value
@@ -33,7 +33,7 @@ public static class FixedTimeScalePropVal
 }
 
 // 4. Tag the get/set property with an attribute.
-[CVarProperty("sv_fixedTimestepValueAttrib", typeof(float))]
+[CVarPropertyDescriptor("sv_fixedTimestepValueAttrib", typeof(float))]
 public static class FixedTimeScalePropValAttrib
 {
     [CVarPropertyAccessor]

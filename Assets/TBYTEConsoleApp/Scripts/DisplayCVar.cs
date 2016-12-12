@@ -6,6 +6,16 @@ using TBYTEConsole;
 
 public class DisplayCVar : MonoBehaviour
 {
+    [CVar("test")]
+    public static string cvarTest;
+
+    [CVarProperty("testProp")]
+    public static string cvarTestProp
+    {
+        get { return "lol"; }
+        set { /*lol no*/ }
+    }
+
     public Text label;
     public string cvarName = "version";
 
@@ -20,6 +30,8 @@ public class DisplayCVar : MonoBehaviour
 
     void Start()
     {
+        ConsoleLocator.cvarRegistry.RegisterStaticMembers<DisplayCVar>();
+
         // test runtime methods
         var reg = ConsoleLocator.cvarRegistry;
 
