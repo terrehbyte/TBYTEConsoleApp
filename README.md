@@ -20,32 +20,35 @@ ProjectSettings/            Special folder for settings for Unity project.
 
 There are three major types of tokens that can be defined:
 
-1. String-backed CVar
-2. Property-backed CVar
-3. Command
+**Contents**
 
-## String-backed CVar
+- Declaring CVar and CMDs
+  1. [Field-backed CVar](#field-backed-cvar)
+  2. [Property-backed CVar](#property-backed-cvar)
+  3. [String-backed CVar](#string-backed-cvar)
+  4. [Command](#command)
+- Accessing CVars
 
-These are the heart and soul of the console. String-backed CVars store data
-in text, but retain knowledge about what type it's intended to be.
+## Field-backed CVar
 
-Write the following anywhere it will be run prior to any other script running
-or before it should be accessed by any script. For example, to register a
-CVar named "version" that stores `string` values, try the following:
+Class fields can be tagged as a CVar to register them with the Console system.
+Any read or write operation will revolve around the tagged field.
 
 ```C#
+public class PlayerState : MonoBehaviour
+{
+    [CVar("cl_playerName")]
+    public static string name;
 
-// Declares and initializes a CVar named "version" with the default string value.
-ConsoleLocator.cvarRegistry.Register<string>("version");
-
-// Declares and initializes a CVar named "version" with the "0.1" value.
-ConsoleLocator.cvarRegistry.Register<string>("version", "0.1");
-
-// Declares and initializes a CVar named "version" with the "0.1" value.
-// ... the type parameter is inferred from the given initial value.
-ConsoleLocator.cvarRegistry.Register("version", "0.1");
-
+    void Start()
+    {
+        // you must call this method to inform the Console of any tagged CVars
+        ConsoleLocator.cvarRegistry.RegisterStaticMembers<DisplayCVar>();
+    }
+}
 ```
+
+Only static fields are supported at this time.
 
 ## Property-backed CVar
 
@@ -60,6 +63,27 @@ This revolves around four key pieces of information:
   4. What method is used when **setting** its value?
 
 There are a variety of ways to handle this.
+
+You may tag a static property member of a class as a property. Its get and set
+functions will be used when retrieving the value or assigning a valid input. 
+```C#
+public class PlayerState : MonoBehaviour
+{
+    [CVarProperty("cl_playerName")]
+    public static string name
+    {
+        get; set;
+    }
+
+    void Start()
+    {
+        // you must call this method to inform the Console of any tagged CVars
+        ConsoleLocator.cvarRegistry.RegisterStaticMembers<DisplayCVar>();
+    }
+}
+```
+
+You may also declare a property in its own static class as well.
 
 You can specify the token, type, and property in the attribute.
 ```C#
@@ -143,6 +167,29 @@ public class RegisterCVarProperties : MonoBehaviour
 }
 ```
 
+## String-backed CVar
+
+These are the heart and soul of the console. String-backed CVars store data
+in text, but retain knowledge about what type it's intended to be.
+
+Write the following anywhere it will be run prior to any other script running
+or before it should be accessed by any script. For example, to register a
+CVar named "version" that stores `string` values, try the following:
+
+```C#
+
+// Declares and initializes a CVar named "version" with the default string value.
+ConsoleLocator.cvarRegistry.Register<string>("version");
+
+// Declares and initializes a CVar named "version" with the "0.1" value.
+ConsoleLocator.cvarRegistry.Register<string>("version", "0.1");
+
+// Declares and initializes a CVar named "version" with the "0.1" value.
+// ... the type parameter is inferred from the given initial value.
+ConsoleLocator.cvarRegistry.Register("version", "0.1");
+
+```
+
 ## Command
 
 Tokens intended to execute a particular action can be executed with zero or more
@@ -191,6 +238,7 @@ and maintained here in order to maintain working notes and outline goals.
     - Add a base class that you inherit from to add a variable?
         - It could even provide info strings like "help"...
     - How should you handle CVars created at runtime? reset?
+    - TODO: HOW THE HELL DO I HANDLE CVARs ON INSTANCES?
 2. Add support for config files (`*.cfg`)
 3. Add support for different colors
 4. Add in-game console support
@@ -199,6 +247,7 @@ and maintained here in order to maintain working notes and outline goals.
    but the user is attempting to assign a new value
    - Maybe a "readonly" bool on the CVar?
 7. Add support for mirror Debug.Log messages to Console
+8. Cache static registrations to prevent duplicate CVars
 
 # LICENSE
 
