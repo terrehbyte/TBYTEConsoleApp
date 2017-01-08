@@ -38,15 +38,3 @@ ExportedObj/
 Icon?
 ehthumbs.db
 Thumbs.db
-
-# ======= #
-# UnityVS #
-# ======= #
-**/UnityVS/Editor/*
-!SyntaxTree.*
-
-# ==== #
-# Code #
-# ==== #
-
-.vscode
