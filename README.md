@@ -222,6 +222,7 @@ public static class GameCommands
 During the early stages of development, a roadmap will be informally posted
 and maintained here in order to maintain working notes and outline goals.
 
+0. Gather commands tagged with a Command attribute
 1. Add support for CVars
     - OnChange hooks per CVar (or from registry?)
     - Instance CVars (per Component)
