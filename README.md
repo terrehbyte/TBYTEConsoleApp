@@ -1,5 +1,7 @@
 # TBYTEConsole
 
+![GIF of TBYTEConsole](https://terrehbyte.com/images/projects/TBYTEConsole.gif)
+
 This repository contains work devoted towards the development of a Quake-like
 console for use in Unity3D. Developers and players alike should be able to
 access the console to use commands and cvars to customize their game or settings
