@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"name": "Root",
+			"path": "./"
+		},
+		{
+			"name": "Console",
+			"path": "TBYTEConsole"
+		},
+		{
+			"name": "Unity",
+			"path": "TBYTEConsoleUnity"
+		}
+	],
+	"settings": {}
+}
