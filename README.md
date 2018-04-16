@@ -12,10 +12,12 @@ to their liking.
 ```
 DEVNOTES.md                 Notes to and from the developer.
 README.md                   This file! :)
-Assets/                     Special folder for assets for Unity project.
-    TBYTEConsole/           Assets relating to the Console.
-    TBYTEConsoleApp/        Example or test assets demostrating console usage.
-ProjectSettings/            Special folder for settings for Unity project.
+TBYTEConsole/               TBYTEConsole source-code.
+TBYTEConsoleUnity/
+    Assets/                 Special folder for assets for Unity project.
+        TBYTEConsole/       Assets relating to the Console.
+        TBYTEConsoleApp/    Example or test assets demostrating console usage.
+    ProjectSettings/        Special folder for settings for Unity project.
 ```
 
 # Quick Start
@@ -45,7 +47,7 @@ public class PlayerState : MonoBehaviour
     void Start()
     {
         // you must call this method to inform the Console of any tagged CVars
-        ConsoleLocator.cvarRegistry.RegisterStaticMembers<DisplayCVar>();
+        ConsoleLocator.cvarRegistry.RegisterStaticMembers<PlayerState>();
     }
 }
 ```
@@ -80,7 +82,7 @@ public class PlayerState : MonoBehaviour
     void Start()
     {
         // you must call this method to inform the Console of any tagged CVars
-        ConsoleLocator.cvarRegistry.RegisterStaticMembers<DisplayCVar>();
+        ConsoleLocator.cvarRegistry.RegisterStaticMembers<PlayerState>();
     }
 }
 ```
