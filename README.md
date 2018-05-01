@@ -1,6 +1,7 @@
 # TBYTEConsole
 
 ![GIF of TBYTEConsole](https://terrehbyte.com/images/projects/TBYTEConsole.gif)
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fterrehbyte%2FTBYTEConsoleApp.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fterrehbyte%2FTBYTEConsoleApp?ref=badge_shield)
 
 This repository contains work devoted towards the development of a Quake-like
 console for use in Unity3D. Developers and players alike should be able to
@@ -257,3 +258,6 @@ and maintained here in order to maintain working notes and outline goals.
 # LICENSE
 
 Copyright (c) 2016 Terry Nguyen
+
+
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fterrehbyte%2FTBYTEConsoleApp.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fterrehbyte%2FTBYTEConsoleApp?ref=badge_large)
